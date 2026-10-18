@@ -6,6 +6,12 @@ const PUBLIC_PATHS = ["/login", "/api/ingest", "/api/cron", "/api/health"];
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Local preview mode: no real auth server, everyone is the preview owner.
+  if (process.env.MONEYOS_PREVIEW_SUB && !(process.env.NODE_ENV === "production" && process.env.VERCEL)) {
+    if (request.nextUrl.pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,

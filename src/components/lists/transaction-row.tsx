@@ -5,17 +5,21 @@ import { useRef_ } from "@/components/ref-provider";
 import { EntityDot, Money } from "@/components/ui/primitives";
 import type { TransactionRow } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
+import { shortDate } from "@/lib/dates";
 
 export function TxRow({
   tx,
   onEdit,
   onDelete,
   compact,
+  showDate,
 }: {
   tx: TransactionRow;
   onEdit?: (tx: TransactionRow) => void;
   onDelete?: (tx: TransactionRow) => void;
   compact?: boolean;
+  /** show the date under the amount (lists that aren't grouped by day) */
+  showDate?: boolean;
 }) {
   const { entities, categories, accounts } = useRef_();
   const entity = entities.find((e) => e.id === tx.entity_id);
@@ -91,7 +95,7 @@ export function TxRow({
           sign
           className="text-sm font-medium"
         />
-        {!compact ? <span className="num text-[11px] text-ink-3">{tx.occurred_on}</span> : null}
+        {showDate ? <span className="num text-[11px] text-ink-3">{shortDate(tx.occurred_on)}</span> : null}
       </div>
       {onEdit || onDelete ? (
         <div className="hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 sm:flex">

@@ -57,8 +57,8 @@ export type FormatOptions = {
   sign?: boolean;
   /** drop decimals when the value is a whole number */
   compactDecimals?: boolean;
-  /** abbreviate thousands (12.4k) */
-  abbreviate?: boolean;
+  /** abbreviate thousands (12.4k) from 10k up, or from 1k with "axis" */
+  abbreviate?: boolean | "axis";
 };
 
 const usdFmt = new Intl.NumberFormat("en-US", {
@@ -92,7 +92,7 @@ export function formatMoney(
   const useZero = opts.compactDecimals && whole;
 
   let body: string;
-  if (opts.abbreviate && abs >= 10_000) {
+  if (opts.abbreviate && abs >= (opts.abbreviate === "axis" ? 1_000 : 10_000)) {
     const k = abs / 1000;
     const kStr = k >= 100 ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, "");
     body = currency === "USD" ? `$${kStr}k` : `${kStr}k MAD`;

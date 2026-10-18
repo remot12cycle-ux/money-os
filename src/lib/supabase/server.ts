@@ -4,9 +4,13 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/db/types";
+import { createPreviewClient, previewSub } from "./preview";
 
 /** Request-scoped client for Server Components, Server Actions and Route Handlers. */
 export async function createClient() {
+  const sub = previewSub();
+  if (sub) return createPreviewClient(sub);
+
   const cookieStore = await cookies();
 
   return createServerClient<Database>(

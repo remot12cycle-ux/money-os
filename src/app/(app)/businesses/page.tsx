@@ -115,7 +115,7 @@ export default async function BusinessesPage({
         {report.monthRows.length ? (
           <Rows>
             {report.monthRows.map((tx) => (
-              <TxRow key={tx.id} tx={tx} />
+              <TxRow key={tx.id} tx={tx} showDate />
             ))}
           </Rows>
         ) : (

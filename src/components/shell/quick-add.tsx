@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog } from "radix-ui";
@@ -26,6 +27,8 @@ export function QuickAdd() {
   const [palette, setPalette] = useState(false);
   const [open, setOpen] = useState<Open>(null);
   const router = useRouter();
+  // true after hydration (false during SSR) without a setState-in-effect
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -57,15 +60,20 @@ export function QuickAdd() {
         <kbd className="num ml-1 rounded bg-black/15 px-1.5 py-0.5 text-[10px] font-medium">⌘K</kbd>
       </Button>
 
-      {/* mobile floating button */}
-      <button
-        type="button"
-        aria-label="Quick add"
-        onClick={() => setPalette(true)}
-        className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] right-4 z-30 grid size-14 place-items-center rounded-full bg-mint text-on-mint shadow-float transition-transform active:scale-95 md:hidden"
-      >
-        <Plus className="size-6" />
-      </button>
+      {/* mobile floating button — portaled to <body> so the blurred header can't become its containing block */}
+      {mounted
+        ? createPortal(
+            <button
+              type="button"
+              aria-label="Quick add"
+              onClick={() => setPalette(true)}
+              className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] right-4 z-30 grid size-14 place-items-center rounded-full bg-mint text-on-mint shadow-float transition-transform active:scale-95 md:hidden"
+            >
+              <Plus className="size-6" />
+            </button>,
+            document.body,
+          )
+        : null}
 
       <Dialog.Root open={palette} onOpenChange={setPalette}>
         <AnimatePresence>

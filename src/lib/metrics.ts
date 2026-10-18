@@ -8,6 +8,8 @@ export type TxLite = {
   amount_base: number;
   entity_id: string | null;
   occurred_on: string; // yyyy-mm-dd
+  /** 'opening' rows are capital, not income — excluded from P&L. */
+  source?: string;
 };
 
 export type Pnl = { income: number; expenses: number; net: number; margin: number };
@@ -16,6 +18,7 @@ export function pnl(txs: Iterable<TxLite>): Pnl {
   let income = 0;
   let expenses = 0;
   for (const t of txs) {
+    if (t.source === "opening") continue;
     if (t.type === "income") income += t.amount_base;
     else if (t.type === "expense") expenses += t.amount_base;
   }

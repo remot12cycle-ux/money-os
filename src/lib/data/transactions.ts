@@ -47,7 +47,7 @@ export async function listSince(fromISO: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("type, amount_base, entity_id, occurred_on, category_id")
+    .select("type, amount_base, entity_id, occurred_on, category_id, source")
     .gte("occurred_on", fromISO)
     .limit(10000);
   if (error) throw error;
@@ -59,7 +59,7 @@ export async function listAllLite() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("type, amount_base, entity_id, occurred_on")
+    .select("type, amount_base, entity_id, occurred_on, source")
     .limit(20000);
   if (error) throw error;
   return data ?? [];

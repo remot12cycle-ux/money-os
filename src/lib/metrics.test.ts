@@ -14,6 +14,11 @@ describe("metrics", () => {
     expect(p).toEqual({ income: 1000, expenses: 250, net: 750, margin: 0.75 });
   });
 
+  it("ignores opening-balance rows in P&L", () => {
+    const p = pnl([{ ...tx("income", 5000), source: "opening" }, tx("income", 100)]);
+    expect(p.income).toBe(100);
+  });
+
   it("available subtracts committed", () => {
     expect(available(5000, 1200.5)).toBe(3799.5);
   });

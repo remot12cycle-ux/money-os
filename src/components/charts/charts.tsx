@@ -19,28 +19,23 @@ import { entityColorFor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 /* ───────── theme hook for chart colours ───────── */
-export function useThemeColors() {
-  const [dark, setDark] = useState(true);
+type ThemeColors = { dark: boolean; mint: string; coral: string; amber: string; ink2: string; ink3: string; hairline: string; raised: string };
+
+const DARK: ThemeColors = { dark: true, mint: "#2fe3a5", coral: "#f4645f", amber: "#f2b544", ink2: "#a4abb6", ink3: "#6b7280", hairline: "rgba(255,255,255,0.08)", raised: "#171b21" };
+const LIGHT: ThemeColors = { dark: false, mint: "#0f9d6e", coral: "#d9403b", amber: "#b9780c", ink2: "#5b6472", ink3: "#8a93a1", hairline: "rgba(16,20,28,0.08)", raised: "#f1f3f6" };
+
+/** Chart colours follow the live theme class; starts with the dark set so SSR and first paint agree. */
+export function useThemeColors(): ThemeColors {
+  const [colors, setColors] = useState<ThemeColors>(DARK);
   useEffect(() => {
     const el = document.documentElement;
-    const read = () => setDark(el.classList.contains("dark"));
+    const read = () => setColors(el.classList.contains("dark") ? DARK : LIGHT);
     read();
     const obs = new MutationObserver(read);
     obs.observe(el, { attributes: true, attributeFilter: ["class"] });
     return () => obs.disconnect();
   }, []);
-  const css = (v: string) =>
-    typeof window === "undefined" ? "" : getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  return {
-    dark,
-    mint: css("--mint") || (dark ? "#2fe3a5" : "#0f9d6e"),
-    coral: css("--coral") || (dark ? "#f4645f" : "#d9403b"),
-    amber: css("--amber") || (dark ? "#f2b544" : "#b9780c"),
-    ink2: css("--ink-2") || (dark ? "#a4abb6" : "#5b6472"),
-    ink3: css("--ink-3") || (dark ? "#6b7280" : "#8a93a1"),
-    hairline: dark ? "rgba(255,255,255,0.08)" : "rgba(16,20,28,0.08)",
-    raised: css("--raised") || (dark ? "#171b21" : "#f1f3f6"),
-  };
+  return colors;
 }
 
 /* ───────── Tooltip ───────── */
@@ -139,9 +134,9 @@ export function IncomeExpenseChart({
           <YAxis
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={52}
             tick={{ fill: c.ink3, fontSize: 11, fontFamily: "var(--font-mono)" }}
-            tickFormatter={(v) => formatMoney(Number(v), currency, { abbreviate: true, compactDecimals: true })}
+            tickFormatter={(v) => formatMoney(Number(v), currency, { abbreviate: "axis", compactDecimals: true })}
           />
           <Tooltip
             cursor={{ fill: c.hairline }}
@@ -269,7 +264,7 @@ export function CategoryBars({
   return (
     <div className="h-48 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }} barCategoryGap="28%">
+        <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 56, bottom: 0, left: 0 }} barCategoryGap="28%">
           <XAxis type="number" hide domain={[0, max]} />
           <YAxis type="category" dataKey="name" width={120} tickLine={false} axisLine={false} tick={{ fill: c.ink2, fontSize: 12 }} />
           <Tooltip
@@ -280,7 +275,18 @@ export function CategoryBars({
               ) : null
             }
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          <Bar
+            dataKey="value"
+            radius={[0, 4, 4, 0]}
+            isAnimationActive={false}
+            label={{
+              position: "right",
+              fill: c.ink2,
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              formatter: (v: unknown) => formatMoney(Number(v), currency, { abbreviate: "axis", compactDecimals: true }),
+            }}
+          >
             {rows.map((_, i) => (
               <Cell key={i} fill={c.coral} fillOpacity={0.9 - i * 0.08} />
             ))}

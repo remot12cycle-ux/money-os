@@ -21,10 +21,28 @@ export type IngestItem = z.infer<typeof ingestItem>;
 
 export const ingestBody = z.union([ingestItem, z.array(ingestItem).min(1).max(500)]);
 
-export function normalizeBody(raw: unknown): { ok: true; items: IngestItem[] } | { ok: false; errors: unknown } {
-  const parsed = ingestBody.safeParse(raw);
-  if (!parsed.success) return { ok: false, errors: parsed.error.flatten() };
-  return { ok: true, items: Array.isArray(parsed.data) ? parsed.data : [parsed.data] };
+export type IngestError = { index: number; issues: { path: string; message: string }[] };
+
+export function normalizeBody(
+  raw: unknown,
+): { ok: true; items: IngestItem[] } | { ok: false; errors: IngestError[] | string } {
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return { ok: false, errors: "Array must contain at least one item" };
+    if (raw.length > 500) return { ok: false, errors: "At most 500 items per call" };
+    const items: IngestItem[] = [];
+    const errors: IngestError[] = [];
+    raw.forEach((r, index) => {
+      const p = ingestItem.safeParse(r);
+      if (p.success) items.push(p.data);
+      else errors.push({ index, issues: p.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })) });
+    });
+    return errors.length ? { ok: false, errors } : { ok: true, items };
+  }
+  const p = ingestItem.safeParse(raw);
+  if (!p.success) {
+    return { ok: false, errors: [{ index: 0, issues: p.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }] };
+  }
+  return { ok: true, items: [p.data] };
 }
 
 /** Case-insensitive match by slug or name. */

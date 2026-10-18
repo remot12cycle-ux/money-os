@@ -67,7 +67,7 @@ export function MoneyView({
   }, [transactions]);
 
   const base = profile.base_currency;
-  const shownIncome = sum(transactions.filter((t) => t.type === "income").map((t) => t.amount_base));
+  const shownIncome = sum(transactions.filter((t) => t.type === "income" && t.source !== "opening").map((t) => t.amount_base));
   const shownExpense = sum(transactions.filter((t) => t.type === "expense").map((t) => t.amount_base));
 
   function remove(tx: TransactionRow) {
