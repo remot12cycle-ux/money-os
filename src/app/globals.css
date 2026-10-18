@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────── Tokens — "The Ledger at Night" ───────────────────────── */
+:root {
+  /* neutrals (light / paper) */
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --raised: #f1f3f6;
+  --hairline: rgba(16, 20, 28, 0.08);
+  --hairline-strong: rgba(16, 20, 28, 0.16);
+  --ink: #0f1217;
+  --ink-2: #5b6472;
+  --ink-3: #8a93a1;
+
+  /* signals */
+  --mint: #0f9d6e;
+  --mint-soft: rgba(15, 157, 110, 0.12);
+  --on-mint: #ffffff;
+  --coral: #d9403b;
+  --coral-soft: rgba(217, 64, 59, 0.12);
+  --amber: #b9780c;
+  --amber-soft: rgba(185, 120, 12, 0.14);
+
+  /* entities */
+  --e-personal: #4b5ea2;
+  --e-cod: #c9690c;
+  --e-saas: #0067a0;
+  --e-digital: #a53c75;
+  --e-salary: #00986c;
+  --entity-l: 0.52;
+
+  --shadow-float: 0 20px 60px rgba(16, 20, 28, 0.18);
+  --ring: var(--mint);
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0b0d10;
+  --surface: #111418;
+  --raised: #171b21;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+  --ink: #f3f5f7;
+  --ink-2: #a4abb6;
+  --ink-3: #6b7280;
+
+  --mint: #2fe3a5;
+  --mint-soft: rgba(47, 227, 165, 0.14);
+  --on-mint: #05261a;
+  --coral: #f4645f;
+  --coral-soft: rgba(244, 100, 95, 0.16);
+  --amber: #f2b544;
+  --amber-soft: rgba(242, 181, 68, 0.16);
+
+  --e-personal: #788ed6;
+  --e-cod: #b45600;
+  --e-saas: #0098d4;
+  --e-digital: #c65b93;
+  --e-salary: #00855b;
+  --entity-l: 0.62;
+
+  --shadow-float: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-mint: var(--mint);
+  --color-mint-soft: var(--mint-soft);
+  --color-on-mint: var(--on-mint);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-e-personal: var(--e-personal);
+  --color-e-cod: var(--e-cod);
+  --color-e-saas: var(--e-saas);
+  --color-e-digital: var(--e-digital);
+  --color-e-salary: var(--e-salary);
+
+  --font-sans: var(--font-geist-sans), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-float: var(--shadow-float);
+}
+
+/* ───────────────────────── Base ───────────────────────── */
+html {
+  background: var(--canvas);
+}
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+::selection {
+  background: var(--mint-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button,
+[role="button"] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* The Mono Money Rule */
+.num,
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.hairline {
+  border: 1px solid var(--hairline);
+}
+
+/* entity colours: stored as dark-mode hex, re-stepped per theme */
+.entity-dot {
+  background: oklch(from var(--entity, #788ed6) var(--entity-l) c h);
+}
+.entity-text {
+  color: oklch(from var(--entity, #788ed6) var(--entity-l) c h);
+}
+.entity-bg {
+  background: oklch(from var(--entity, #788ed6) var(--entity-l) c h / 0.14);
+}
+
+/* dashed "committed" underline treatment */
+.committed-amount {
+  text-decoration: underline dashed var(--amber);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/* number inputs: hide spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

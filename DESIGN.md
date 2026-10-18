@@ -23,11 +23,11 @@ colors:
   signal-coral-deep: "#D9403B"
   pending-amber: "#F2B544"
   pending-amber-deep: "#B9780C"
-  entity-personal: "#8B93A7"
-  entity-cod: "#F28C38"
-  entity-saas: "#5BB5F5"
-  entity-digital: "#E36BB1"
-  entity-salary: "#38C7B4"
+  entity-personal: "#788ED6"
+  entity-cod: "#B45600"
+  entity-saas: "#0098D4"
+  entity-digital: "#C65B93"
+  entity-salary: "#00855B"
 typography:
   display:
     fontFamily: "Geist Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
@@ -155,7 +155,7 @@ A graphite neutral ramp carrying three semantic signals and five muted entity hu
 - **Pending Amber** (`{colors.pending-amber}` / deep on light): committed payables, overdue tasks/debts, "rate is stale" notices — anything waiting.
 
 ### Tertiary — Entity hues
-- **Personal** slate, **COD Africa** burnt orange, **SaaS** sky, **Digital Products** rose, **Salary** teal. Used as 8px dots, chip text and chart series only. They never fill large surfaces.
+- **Personal** periwinkle, **COD Africa** burnt orange, **SaaS** sky, **Salary** teal, **Digital Products** rose — validated as a categorical set (CVD ΔE ≥ 8 adjacent, in that order). Stored as the dark-mode hex; light mode re-steps lightness via OKLCH relative colour (`oklch(from <hex> 0.52 c h)`). Used as 8px dots, chip text and chart series only. They never fill large surfaces.
 
 ### Neutral
 - **Graphite Night / Surface / Raised**: canvas, sunken panels and inputs, raised interactive tiles. Light mode mirrors with Paper Light / Surface / Raised.
