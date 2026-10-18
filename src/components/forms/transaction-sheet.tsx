@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Segmented, Select, Textarea } from "@/components/ui/field";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { AmountInput } from "./amount-input";
 import { useRef_ } from "@/components/ref-provider";
 import { saveTransaction, type TxInput } from "@/lib/actions/transactions";
@@ -22,6 +22,8 @@ type Meta = {
   country?: string;
 };
 
+type Defaults = Partial<Pick<TxInput, "type" | "entity_id" | "account_id" | "currency">>;
+
 export function TransactionSheet({
   open,
   onOpenChange,
@@ -33,7 +35,24 @@ export function TransactionSheet({
   /** editing an existing row */
   initial?: TransactionRow | null;
   /** presets for a new row (e.g. from the Businesses page) */
-  defaults?: Partial<Pick<TxInput, "type" | "entity_id" | "account_id" | "currency">>;
+  defaults?: Defaults;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={initial ? "Edit transaction" : "Add transaction"}>
+      {/* The form mounts fresh every time the sheet opens, so state resets for free. */}
+      <TransactionForm key={initial?.id ?? "new"} initial={initial ?? null} defaults={defaults} close={() => onOpenChange(false)} />
+    </Sheet>
+  );
+}
+
+function TransactionForm({
+  initial,
+  defaults,
+  close,
+}: {
+  initial: TransactionRow | null;
+  defaults?: Defaults;
+  close: () => void;
 }) {
   const { accounts, categories, entities, profile } = useRef_();
   const router = useRouter();
@@ -48,9 +67,7 @@ export function TransactionSheet({
   const [currency, setCurrency] = useState<Currency>(
     initial?.currency ?? defaults?.currency ?? firstAccount?.currency ?? profile.base_currency,
   );
-  const [accountId, setAccountId] = useState(
-    initial?.account_id ?? defaults?.account_id ?? firstAccount?.id ?? "",
-  );
+  const [accountId, setAccountId] = useState(initial?.account_id ?? defaults?.account_id ?? firstAccount?.id ?? "");
   const [toAccountId, setToAccountId] = useState(initial?.to_account_id ?? "");
   const [entityId, setEntityId] = useState(
     initial?.entity_id ?? defaults?.entity_id ?? entities.find((e) => e.kind === "personal")?.id ?? "",
@@ -60,31 +77,12 @@ export function TransactionSheet({
   const [note, setNote] = useState(initial?.note ?? "");
   const [meta, setMeta] = useState<Meta>((initial?.meta as Meta) ?? {});
 
-  // Reset when opening for a different row.
-  useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setType(initial?.type ?? defaults?.type ?? "expense");
-    setAmount(initial ? String(initial.amount) : "");
-    setCurrency(initial?.currency ?? defaults?.currency ?? firstAccount?.currency ?? profile.base_currency);
-    setAccountId(initial?.account_id ?? defaults?.account_id ?? firstAccount?.id ?? "");
-    setToAccountId(initial?.to_account_id ?? "");
-    setEntityId(
-      initial?.entity_id ?? defaults?.entity_id ?? entities.find((e) => e.kind === "personal")?.id ?? "",
-    );
-    setCategoryId(initial?.category_id ?? "");
-    setDate(initial?.occurred_on ?? todayISO());
-    setNote(initial?.note ?? "");
-    setMeta((initial?.meta as Meta) ?? {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id]);
-
-  // Follow the account's currency when the user switches account.
-  useEffect(() => {
-    const acc = accounts.find((a) => a.id === accountId);
+  function pickAccount(id: string) {
+    setAccountId(id);
+    // Follow the account's currency for new rows.
+    const acc = accounts.find((a) => a.id === id);
     if (acc && !initial) setCurrency(acc.currency);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId]);
+  }
 
   const entity = entities.find((e) => e.id === entityId);
   const isCod = entity?.slug === "cod-africa";
@@ -123,34 +121,20 @@ export function TransactionSheet({
         return;
       }
       toast.success(initial ? "Transaction updated" : "Transaction added");
-      onOpenChange(false);
+      close();
       router.refresh();
     });
   }
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title={initial ? "Edit transaction" : "Add transaction"}
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={submit} loading={pending}>
-            {initial ? "Save changes" : "Add"}
-          </Button>
-        </>
-      }
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
     >
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
+      <SheetBody className="flex flex-col gap-4">
         <Segmented
           value={type}
           onChange={setType}
@@ -173,7 +157,7 @@ export function TransactionSheet({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={type === "transfer" ? "From account" : "Account"} htmlFor="account" error={errors.account_id}>
-            <Select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <Select id="account" value={accountId} onChange={(e) => pickAccount(e.target.value)}>
               {activeAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} · {a.currency}
@@ -183,11 +167,7 @@ export function TransactionSheet({
           </Field>
           {type === "transfer" ? (
             <Field label="To account" htmlFor="to_account" error={errors.to_account_id}>
-              <Select
-                id="to_account"
-                value={toAccountId}
-                onChange={(e) => setToAccountId(e.target.value)}
-              >
+              <Select id="to_account" value={toAccountId} onChange={(e) => setToAccountId(e.target.value)}>
                 <option value="">Choose…</option>
                 {activeAccounts
                   .filter((a) => a.id !== accountId)
@@ -219,11 +199,7 @@ export function TransactionSheet({
               </Select>
             </Field>
             <Field label="Category" htmlFor="category">
-              <Select
-                id="category"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
+              <Select id="category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                 <option value="">No category</option>
                 {cats.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -258,9 +234,7 @@ export function TransactionSheet({
                   type="number"
                   inputMode="numeric"
                   value={meta.delivered ?? ""}
-                  onChange={(e) =>
-                    setMeta({ ...meta, delivered: e.target.value ? Number(e.target.value) : undefined })
-                  }
+                  onChange={(e) => setMeta({ ...meta, delivered: e.target.value ? Number(e.target.value) : undefined })}
                 />
               </Field>
               <Field label="Returned" htmlFor="returned">
@@ -269,9 +243,7 @@ export function TransactionSheet({
                   type="number"
                   inputMode="numeric"
                   value={meta.returned ?? ""}
-                  onChange={(e) =>
-                    setMeta({ ...meta, returned: e.target.value ? Number(e.target.value) : undefined })
-                  }
+                  onChange={(e) => setMeta({ ...meta, returned: e.target.value ? Number(e.target.value) : undefined })}
                 />
               </Field>
               <Field label="Country" htmlFor="country" className="col-span-2 sm:col-span-3">
@@ -295,8 +267,15 @@ export function TransactionSheet({
             className="min-h-16"
           />
         </Field>
-        <button type="submit" className="hidden" aria-hidden />
-      </form>
-    </Sheet>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" loading={pending}>
+          {initial ? "Save changes" : "Add"}
+        </Button>
+      </SheetFooter>
+    </form>
   );
 }

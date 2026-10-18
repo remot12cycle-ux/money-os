@@ -26,6 +26,7 @@ export function Sheet({
   title: string;
   description?: string;
   children: React.ReactNode;
+  /** Convenience: wraps children in SheetBody and renders this in a SheetFooter. */
   footer?: React.ReactNode;
   className?: string;
   wide?: boolean;
@@ -88,18 +89,36 @@ export function Sheet({
                     </Button>
                   </Dialog.Close>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
-                {footer ? (
-                  <div className="flex items-center justify-end gap-2 border-t border-hairline px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-                    {footer}
-                  </div>
-                ) : null}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {footer ? (
+                    <>
+                      <SheetBody>{children}</SheetBody>
+                      <SheetFooter>{footer}</SheetFooter>
+                    </>
+                  ) : (
+                    children
+                  )}
+                </div>
               </motion.div>
             </Dialog.Content>
           </Dialog.Portal>
         ) : null}
       </AnimatePresence>
     </Dialog.Root>
+  );
+}
+
+/** Scrollable body of a Sheet. */
+export function SheetBody({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("min-h-0 flex-1 overflow-y-auto px-5 pb-5", className)}>{children}</div>;
+}
+
+/** Sticky footer of a Sheet (render as the last child). */
+export function SheetFooter({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-end gap-2 border-t border-hairline px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      {children}
+    </div>
   );
 }
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Segmented, Select, Textarea } from "@/components/ui/field";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { useRef_ } from "@/components/ref-provider";
 import { saveTask } from "@/lib/actions/tasks";
 import type { TaskPriority, TaskRow } from "@/lib/db/types";
@@ -21,27 +21,32 @@ export function TaskSheet({
   initial?: TaskRow | null;
   defaultEntityId?: string | null;
 }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={initial ? "Edit task" : "New task"}>
+      <TaskForm key={initial?.id ?? "new"} initial={initial ?? null} defaultEntityId={defaultEntityId} close={() => onOpenChange(false)} />
+    </Sheet>
+  );
+}
+
+function TaskForm({
+  initial,
+  defaultEntityId,
+  close,
+}: {
+  initial: TaskRow | null;
+  defaultEntityId?: string | null;
+  close: () => void;
+}) {
   const { entities } = useRef_();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
-  const [entityId, setEntityId] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [due, setDue] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setTitle(initial?.title ?? "");
-    setNotes(initial?.notes ?? "");
-    setEntityId(initial?.entity_id ?? defaultEntityId ?? "");
-    setPriority(initial?.priority ?? "medium");
-    setDue(initial?.due_on ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id]);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [entityId, setEntityId] = useState(initial?.entity_id ?? defaultEntityId ?? "");
+  const [priority, setPriority] = useState<TaskPriority>(initial?.priority ?? "medium");
+  const [due, setDue] = useState(initial?.due_on ?? "");
 
   function submit() {
     start(async () => {
@@ -59,42 +64,22 @@ export function TaskSheet({
         return;
       }
       toast.success(initial ? "Task updated" : "Task added");
-      onOpenChange(false);
+      close();
       router.refresh();
     });
   }
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title={initial ? "Edit task" : "New task"}
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={submit} loading={pending}>
-            {initial ? "Save" : "Add task"}
-          </Button>
-        </>
-      }
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
     >
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
+      <SheetBody className="flex flex-col gap-4">
         <Field label="Task" htmlFor="t_title" error={errors.title}>
-          <Input
-            id="t_title"
-            placeholder="What needs doing?"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
+          <Input id="t_title" placeholder="What needs doing?" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Project" htmlFor="t_entity">
@@ -127,8 +112,15 @@ export function TaskSheet({
         <Field label="Notes" htmlFor="t_notes">
           <Textarea id="t_notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
-        <button type="submit" className="hidden" aria-hidden />
-      </form>
-    </Sheet>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" loading={pending}>
+          {initial ? "Save" : "Add task"}
+        </Button>
+      </SheetFooter>
+    </form>
   );
 }

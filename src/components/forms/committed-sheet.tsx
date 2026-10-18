@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { AmountInput } from "./amount-input";
 import { useRef_ } from "@/components/ref-provider";
 import { saveCommitted } from "@/lib/actions/committed";
@@ -21,33 +21,32 @@ export function CommittedSheet({
   onOpenChange: (o: boolean) => void;
   initial?: CommittedRow | null;
 }) {
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={initial ? "Edit committed amount" : "Commit an amount"}
+      description="Money you must pay later. It shows as committed and reduces what's available, without leaving your wallet yet."
+    >
+      <CommittedForm key={initial?.id ?? "new"} initial={initial ?? null} close={() => onOpenChange(false)} />
+    </Sheet>
+  );
+}
+
+function CommittedForm({ initial, close }: { initial: CommittedRow | null; close: () => void }) {
   const { accounts, categories, entities, profile } = useRef_();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<Currency>(profile.base_currency);
-  const [entityId, setEntityId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [due, setDue] = useState("");
-  const [note, setNote] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setTitle(initial?.title ?? "");
-    setAmount(initial ? String(initial.amount) : "");
-    setCurrency(initial?.currency ?? profile.base_currency);
-    setEntityId(initial?.entity_id ?? entities.find((e) => e.slug === "cod-africa")?.id ?? "");
-    setCategoryId(initial?.category_id ?? "");
-    setAccountId(initial?.account_id ?? "");
-    setDue(initial?.due_on ?? "");
-    setNote(initial?.note ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id]);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
+  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? profile.base_currency);
+  const [entityId, setEntityId] = useState(initial?.entity_id ?? entities.find((e) => e.slug === "cod-africa")?.id ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.category_id ?? "");
+  const [accountId, setAccountId] = useState(initial?.account_id ?? "");
+  const [due, setDue] = useState(initial?.due_on ?? "");
+  const [note, setNote] = useState(initial?.note ?? "");
 
   function submit() {
     start(async () => {
@@ -68,52 +67,24 @@ export function CommittedSheet({
         return;
       }
       toast.success(initial ? "Updated" : "Committed amount added");
-      onOpenChange(false);
+      close();
       router.refresh();
     });
   }
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title={initial ? "Edit committed amount" : "Commit an amount"}
-      description="Money you must pay later. It shows as committed and reduces what's available, without leaving your wallet yet."
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={submit} loading={pending}>
-            {initial ? "Save" : "Commit"}
-          </Button>
-        </>
-      }
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
     >
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
+      <SheetBody className="flex flex-col gap-4">
         <Field label="Title" htmlFor="c_title" error={errors.title}>
-          <Input
-            id="c_title"
-            placeholder="e.g. 200 units supplier invoice"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
+          <Input id="c_title" placeholder="e.g. 200 units supplier invoice" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </Field>
-        <AmountInput
-          id="c_amount"
-          value={amount}
-          onChange={setAmount}
-          currency={currency}
-          onCurrencyChange={setCurrency}
-          error={errors.amount}
-        />
+        <AmountInput id="c_amount" value={amount} onChange={setAmount} currency={currency} onCurrencyChange={setCurrency} error={errors.amount} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Entity" htmlFor="c_entity">
             <Select id="c_entity" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
@@ -156,8 +127,15 @@ export function CommittedSheet({
         <Field label="Note" htmlFor="c_note">
           <Textarea id="c_note" value={note} onChange={(e) => setNote(e.target.value)} className="min-h-16" />
         </Field>
-        <button type="submit" className="hidden" aria-hidden />
-      </form>
-    </Sheet>
+      </SheetBody>
+      <SheetFooter>
+        <Button type="button" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" loading={pending}>
+          {initial ? "Save" : "Commit"}
+        </Button>
+      </SheetFooter>
+    </form>
   );
 }

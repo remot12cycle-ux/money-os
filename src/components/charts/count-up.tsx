@@ -1,38 +1,31 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { animate, useReducedMotion } from "motion/react";
 import { formatMoney, type Currency, type FormatOptions } from "@/lib/money";
 
-/** Animates a money figure from 0 (or its previous value) to `value` on mount/change. */
+/** Animates a money figure from its previous value to `value`. */
 export function CountUp({
   value,
   currency,
   className,
-  duration = 700,
+  duration = 0.7,
   ...opts
 }: { value: number; currency: Currency; className?: string; duration?: number } & FormatOptions) {
   const reduce = useReducedMotion();
   const [shown, setShown] = useState(reduce ? value : 0);
-  const fromRef = useRef(0);
+  const fromRef = useRef(reduce ? value : 0);
 
   useEffect(() => {
-    if (reduce) {
-      setShown(value);
-      return;
-    }
-    const from = fromRef.current;
-    const start = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 4);
-      setShown(from + (value - from) * eased);
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else fromRef.current = value;
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const controls = animate(fromRef.current, value, {
+      duration: reduce ? 0 : duration,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => setShown(v),
+      onComplete: () => {
+        fromRef.current = value;
+      },
+    });
+    return () => controls.stop();
   }, [value, duration, reduce]);
 
   return (

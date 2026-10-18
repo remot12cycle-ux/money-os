@@ -6,7 +6,7 @@ import { formatMoney, formatPercent, convert } from "@/lib/money";
 import { daysLeftInMonth, monthLabel } from "@/lib/dates";
 import { CountUp } from "@/components/charts/count-up";
 import { EntityBars, IncomeExpenseChart, Sparkline, TargetRing } from "@/components/charts/charts";
-import { Money, Section, Tile, Empty, Rows } from "@/components/ui/primitives";
+import { Money, Section, Empty, Rows } from "@/components/ui/primitives";
 import { TxRow } from "@/components/lists/transaction-row";
 import { TaskItem } from "@/components/lists/task-item";
 import { Button } from "@/components/ui/button";
