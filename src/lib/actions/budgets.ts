@@ -46,6 +46,7 @@ export async function setBudget(input: {
 }
 
 export async function copyBudgetsFromPreviousMonth(month: string): Promise<ActionResult<{ copied: number }>> {
+  if (!/^\d{4}-\d{2}$/.test(month)) return fail("Invalid month");
   const supabase = await createClient();
   const d = new Date(`${month}-01T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() - 1);
@@ -84,7 +85,8 @@ export async function saveGoal(input: GoalInput): Promise<ActionResult> {
 }
 
 export async function contributeToGoal(id: string, amount: number): Promise<ActionResult> {
-  if (!Number.isFinite(amount) || amount === 0) return fail("Enter an amount");
+  const parsed = z.object({ id: z.uuid(), amount: z.number().finite().refine((n) => n !== 0, "Enter an amount") }).safeParse({ id, amount });
+  if (!parsed.success) return fromZod(parsed.error);
   const supabase = await createClient();
   const { data: g, error } = await supabase.from("goals").select("current_amount_base, target_amount_base").eq("id", id).single();
   if (error || !g) return fail("Goal not found");

@@ -16,51 +16,77 @@ export type TxFilters = {
   source?: import("@/lib/db/types").TxSource;
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const uuidOr = (v?: string) => (v && UUID.test(v) ? v : undefined);
+const dateOr = (v?: string) => (v && DATE.test(v) ? v : undefined);
+
+/** Supabase caps a single read at `max-rows` (1000 by default); page through with range(). */
+const PAGE = 1000;
+async function fetchAll<T>(make: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>, max = 50_000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < max; from += PAGE) {
+    const { data, error } = await make(from, Math.min(from + PAGE, max) - 1);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function listTransactions(f: TxFilters = {}): Promise<TransactionRow[]> {
   const supabase = await createClient();
-  let q = supabase
-    .from("transactions")
-    .select("*")
-    .order("occurred_on", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (f.from) q = q.gte("occurred_on", f.from);
-  if (f.to) q = q.lte("occurred_on", f.to);
-  if (f.entity) q = q.eq("entity_id", f.entity);
-  if (f.account) q = q.or(`account_id.eq.${f.account},to_account_id.eq.${f.account}`);
-  if (f.category) q = q.eq("category_id", f.category);
-  if (f.type) q = q.eq("type", f.type);
-  if (f.source) q = q.eq("source", f.source);
-  if (f.q) q = q.ilike("note", `%${f.q.replace(/[%_]/g, "")}%`);
-  q = q.limit(f.limit ?? 500);
-  const { data, error } = await q;
-  if (error) throw error;
-  return data ?? [];
+  const limit = f.limit ?? 500;
+  return fetchAll<TransactionRow>((from, to) => {
+    let q = supabase
+      .from("transactions")
+      .select("*")
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    const fromD = dateOr(f.from), toD = dateOr(f.to);
+    const entity = uuidOr(f.entity), account = uuidOr(f.account), category = uuidOr(f.category);
+    if (fromD) q = q.gte("occurred_on", fromD);
+    if (toD) q = q.lte("occurred_on", toD);
+    if (entity) q = q.eq("entity_id", entity);
+    if (account) q = q.or(`account_id.eq.${account},to_account_id.eq.${account}`);
+    if (category) q = q.eq("category_id", category);
+    if (f.type) q = q.eq("type", f.type);
+    if (f.source) q = q.eq("source", f.source);
+    if (f.q) q = q.ilike("note", `%${f.q.replace(/[%_\\]/g, "").slice(0, 80)}%`);
+    return q.range(from, to);
+  }, limit);
 }
 
 export async function listMonth(month: string): Promise<TransactionRow[]> {
   const { from, to } = monthRange(month);
-  return listTransactions({ from, to, limit: 2000 });
+  return listTransactions({ from, to, limit: 20_000 });
 }
 
-/** Light rows for charts over a long window. */
-export async function listSince(fromISO: string) {
+export type TxChartRow = Pick<TransactionRow, "type" | "amount_base" | "entity_id" | "occurred_on" | "category_id" | "source">;
+
+/** Light rows for charts over a long window (paged, ordered). */
+export async function listSince(fromISO: string): Promise<TxChartRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("type, amount_base, entity_id, occurred_on, category_id, source")
-    .gte("occurred_on", fromISO)
-    .limit(10000);
-  if (error) throw error;
-  return data ?? [];
+  return fetchAll<TxChartRow>((from, to) =>
+    supabase
+      .from("transactions")
+      .select("type, amount_base, entity_id, occurred_on, category_id, source")
+      .gte("occurred_on", fromISO)
+      .order("occurred_on", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 }
 
-/** All non-transfer rows (for lifetime net worth / sparkline). */
-export async function listAllLite() {
+/** Every row (lifetime net worth / sparkline). */
+export async function listAllLite(): Promise<TxChartRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("type, amount_base, entity_id, occurred_on, source")
-    .limit(20000);
-  if (error) throw error;
-  return data ?? [];
+  return fetchAll<TxChartRow>((from, to) =>
+    supabase
+      .from("transactions")
+      .select("type, amount_base, entity_id, occurred_on, category_id, source")
+      .order("occurred_on", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 }

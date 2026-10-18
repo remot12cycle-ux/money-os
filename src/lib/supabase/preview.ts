@@ -10,7 +10,7 @@ import type { Database } from "@/lib/db/types";
  * stubbed to that user. Never enabled in production builds on Vercel.
  */
 export function previewSub(): string | null {
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL) return null;
+  if (process.env.NODE_ENV !== "development") return null;
   return process.env.MONEYOS_PREVIEW_SUB ?? null;
 }
 
@@ -19,7 +19,8 @@ function b64url(input: string | Buffer) {
 }
 
 function mintJwt(sub: string) {
-  const secret = process.env.MONEYOS_PREVIEW_JWT_SECRET ?? "";
+  const secret = process.env.MONEYOS_PREVIEW_JWT_SECRET;
+  if (!secret) throw new Error("MONEYOS_PREVIEW_JWT_SECRET is required for preview mode");
   const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = b64url(
     JSON.stringify({ sub, role: "authenticated", email: "preview@local", exp: Math.floor(Date.now() / 1000) + 3600 }),

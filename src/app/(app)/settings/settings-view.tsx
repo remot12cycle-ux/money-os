@@ -61,7 +61,6 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
   const [pending, start] = useTransition();
   const [form, setForm] = useState({
     display_name: p.display_name ?? "",
-    base_currency: p.base_currency,
     starting_capital: String(p.starting_capital),
     monthly_target: String(p.monthly_target),
     target_metric: p.target_metric,
@@ -82,14 +81,14 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
       <Section title="Profile & capital">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); save(); }}>
           <Field label="Display name" htmlFor="s_name"><Input id="s_name" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} /></Field>
-          <Field label="Base currency" htmlFor="s_base" hint="All totals, charts and targets are shown in this currency.">
-            <Segmented value={form.base_currency} onChange={(v) => setForm({ ...form, base_currency: v })} options={[{ value: "USD", label: "USD" }, { value: "MAD", label: "MAD" }]} />
+          <Field label="Base currency" htmlFor="s_base" hint="Fixed at setup — every stored amount is snapshotted into this currency, so it can't be switched later.">
+            <div className="num inline-flex h-10 items-center rounded-md border border-hairline bg-raised px-3 text-sm">{p.base_currency}</div>
           </Field>
-          <Field label={`Starting capital (${form.base_currency})`} htmlFor="s_cap" hint="Net worth growth is measured against this number.">
+          <Field label={`Starting capital (${p.base_currency})`} htmlFor="s_cap" hint="Net worth growth is measured against this number; the seeded opening balance follows it.">
             <Input id="s_cap" type="number" inputMode="decimal" value={form.starting_capital} onChange={(e) => setForm({ ...form, starting_capital: e.target.value })} className="num" />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label={`Monthly target (${form.base_currency})`} htmlFor="s_target">
+            <Field label={`Monthly target (${p.base_currency})`} htmlFor="s_target">
               <Input id="s_target" type="number" inputMode="decimal" value={form.monthly_target} onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} className="num" />
             </Field>
             <Field label="Measured as" htmlFor="s_metric">

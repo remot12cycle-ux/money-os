@@ -26,6 +26,7 @@ export const txSchema = z
         country: z.string().max(60).optional(),
       })
       .partial()
+      .passthrough()
       .optional(),
   })
   .refine((v) => v.type !== "transfer" || (v.to_account_id && v.to_account_id !== v.account_id), {

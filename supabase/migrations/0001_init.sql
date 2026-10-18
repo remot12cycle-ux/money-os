@@ -394,3 +394,146 @@ grant execute on function public.setup_owner() to authenticated;
 grant usage on schema public to authenticated, anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant select on public.account_balances to authenticated;
+
+-- ───────────────────────── integrity: transaction currency must match its account ─────────────────────────
+create or replace function public.enforce_tx_currency()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  acc_cur text;
+begin
+  select currency into acc_cur from public.accounts where id = new.account_id;
+  if acc_cur is null then
+    raise exception 'account not found';
+  end if;
+  if new.currency <> acc_cur then
+    raise exception 'transaction currency (%) must match account currency (%)', new.currency, acc_cur
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+create trigger transactions_currency_check
+  before insert or update of account_id, currency on public.transactions
+  for each row execute function public.enforce_tx_currency();
+
+-- Recurring rules keep the day they were anchored on (so the 31st doesn't drift to the 28th).
+alter table public.recurring_rules add column day_of_month int check (day_of_month between 1 and 31);
+
+-- ───────────────────────── atomic flows ─────────────────────────
+-- Pay a committed item: creates the expense (converted into the account currency when needed)
+-- and closes the item, in one transaction. Runs as the caller (RLS applies).
+create or replace function public.pay_committed(p_id uuid, p_account uuid, p_paid_on date, p_amount numeric default null)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  c public.committed_payables%rowtype;
+  acc public.accounts%rowtype;
+  prof public.profiles%rowtype;
+  amt numeric(14,2);
+  fx numeric(12,6);
+  tx_id uuid;
+begin
+  select * into c from public.committed_payables where id = p_id and status = 'open';
+  if not found then raise exception 'committed item not found or not open'; end if;
+  select * into acc from public.accounts where id = p_account;
+  if not found then raise exception 'account not found'; end if;
+  select * into prof from public.profiles where id = c.owner_id;
+
+  amt := coalesce(p_amount, c.amount);
+  -- convert the committed amount into the paying account's currency
+  if c.currency <> acc.currency then
+    amt := case when acc.currency = 'MAD' then round(amt * prof.usd_to_mad, 2) else round(amt / prof.usd_to_mad, 2) end;
+  end if;
+  fx := case when acc.currency = prof.base_currency then 1
+             when acc.currency = 'USD' then prof.usd_to_mad
+             else 1 / prof.usd_to_mad end;
+
+  insert into public.transactions (owner_id, type, amount, currency, fx_rate_to_base, account_id, category_id, entity_id, occurred_on, note, source)
+  values (c.owner_id, 'expense', amt, acc.currency, fx, acc.id, c.category_id, c.entity_id, p_paid_on, c.title, 'committed')
+  returning id into tx_id;
+
+  update public.committed_payables
+     set status = 'paid', paid_transaction_id = tx_id, account_id = acc.id
+   where id = c.id;
+  return tx_id;
+end;
+$$;
+
+-- Reopen a paid item: removes the expense it created so nothing is double counted.
+create or replace function public.reopen_committed(p_id uuid)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  c public.committed_payables%rowtype;
+begin
+  select * into c from public.committed_payables where id = p_id;
+  if not found then raise exception 'committed item not found'; end if;
+  update public.committed_payables set status = 'open', paid_transaction_id = null where id = c.id;
+  if c.paid_transaction_id is not null then
+    delete from public.transactions where id = c.paid_transaction_id;
+  end if;
+end;
+$$;
+
+-- Record a debt payment, optionally booking the matching income/expense, atomically.
+create or replace function public.record_debt_payment(p_debt uuid, p_amount numeric, p_paid_on date, p_account uuid default null)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  d public.debts%rowtype;
+  acc public.accounts%rowtype;
+  prof public.profiles%rowtype;
+  amt numeric(14,2);
+  fx numeric(12,6);
+  tx_id uuid;
+  paid_total numeric;
+begin
+  if p_amount is null or p_amount <= 0 then raise exception 'amount must be above zero'; end if;
+  select * into d from public.debts where id = p_debt;
+  if not found then raise exception 'debt not found'; end if;
+
+  if p_account is not null then
+    select * into acc from public.accounts where id = p_account;
+    if not found then raise exception 'account not found'; end if;
+    select * into prof from public.profiles where id = d.owner_id;
+    amt := p_amount;
+    if d.currency <> acc.currency then
+      amt := case when acc.currency = 'MAD' then round(amt * prof.usd_to_mad, 2) else round(amt / prof.usd_to_mad, 2) end;
+    end if;
+    fx := case when acc.currency = prof.base_currency then 1
+               when acc.currency = 'USD' then prof.usd_to_mad
+               else 1 / prof.usd_to_mad end;
+    insert into public.transactions (owner_id, type, amount, currency, fx_rate_to_base, account_id, occurred_on, note, source)
+    values (d.owner_id, case when d.direction = 'owed_to_me' then 'income' else 'expense' end, amt, acc.currency, fx, acc.id, p_paid_on,
+            case when d.direction = 'owed_to_me' then 'Repayment from ' else 'Repayment to ' end || d.counterparty, 'debt')
+    returning id into tx_id;
+  end if;
+
+  insert into public.debt_payments (owner_id, debt_id, amount, paid_on, transaction_id)
+  values (d.owner_id, d.id, p_amount, p_paid_on, tx_id);
+
+  select coalesce(sum(amount), 0) into paid_total from public.debt_payments where debt_id = d.id;
+  if paid_total >= d.principal - 0.005 then
+    update public.debts set status = 'settled' where id = d.id;
+  end if;
+end;
+$$;
+
+revoke all on function public.pay_committed(uuid, uuid, date, numeric) from public;
+revoke all on function public.reopen_committed(uuid) from public;
+revoke all on function public.record_debt_payment(uuid, numeric, date, uuid) from public;
+grant execute on function public.pay_committed(uuid, uuid, date, numeric) to authenticated;
+grant execute on function public.reopen_committed(uuid) to authenticated;
+grant execute on function public.record_debt_payment(uuid, numeric, date, uuid) to authenticated;

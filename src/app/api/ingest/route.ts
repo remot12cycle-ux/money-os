@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { findByNameOrSlug, normalizeBody } from "@/lib/ingest";
-import { rateToBase } from "@/lib/money";
+import { convert, rateToBase } from "@/lib/money";
 
 export const runtime = "nodejs";
 
@@ -56,14 +56,18 @@ export async function POST(req: NextRequest) {
 
   for (const [index, item] of parsed.items.entries()) {
     const entity = findByNameOrSlug(entities ?? [], item.entity);
+    const active = (accounts ?? []).filter((a) => !a.is_archived);
     const account =
-      findByNameOrSlug((accounts ?? []).filter((a) => !a.is_archived), item.account) ??
-      (accounts ?? []).find((a) => !a.is_archived && a.currency === item.currency) ??
-      (accounts ?? []).find((a) => !a.is_archived);
+      findByNameOrSlug(active, item.account) ??
+      active.find((a) => a.currency === item.currency) ??
+      active[0];
     if (!account) {
       results.push({ index, status: 422, error: "No account available" });
       continue;
     }
+    // A row must be in its account's currency: convert if the caller named an account in another one.
+    const currency = account.currency as "USD" | "MAD";
+    const amount = currency === item.currency ? item.amount : convert(item.amount, item.currency, currency, rate);
 
     let category_id: string | null = null;
     if (item.category) {
@@ -85,9 +89,9 @@ export async function POST(req: NextRequest) {
     const row = {
       owner_id: owner,
       type: item.type,
-      amount: item.amount,
-      currency: item.currency,
-      fx_rate_to_base: rateToBase(item.currency, base, rate),
+      amount,
+      currency,
+      fx_rate_to_base: rateToBase(currency, base, rate),
       account_id: account.id,
       category_id,
       entity_id: entity?.id ?? null,

@@ -5,7 +5,14 @@ const PUBLIC_PATHS = ["/login", "/api/ingest", "/api/cron", "/api/health"];
 
 function supabaseConfigured() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url) && Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+  if (!key || key === "REPLACE-ME" || /REPLACE-ME|example\./.test(url)) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 export async function updateSession(request: NextRequest) {
@@ -13,14 +20,14 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Not wired to Supabase yet (fresh deploy): show the setup guide instead of crashing.
-  if (!supabaseConfigured() && !process.env.MONEYOS_PREVIEW_SUB) {
+  if (!supabaseConfigured() && !(process.env.MONEYOS_PREVIEW_SUB && process.env.NODE_ENV === "development")) {
     if (pathname === "/setup" || pathname.startsWith("/api/health")) return supabaseResponse;
     return NextResponse.redirect(new URL("/setup", request.url));
   }
   if (pathname === "/setup") return NextResponse.redirect(new URL("/", request.url));
 
   // Local preview mode: no real auth server, everyone is the preview owner.
-  if (process.env.MONEYOS_PREVIEW_SUB && !(process.env.NODE_ENV === "production" && process.env.VERCEL)) {
+  if (process.env.MONEYOS_PREVIEW_SUB && process.env.NODE_ENV === "development") {
     if (request.nextUrl.pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
     return supabaseResponse;
   }

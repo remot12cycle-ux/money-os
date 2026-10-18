@@ -30,7 +30,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // Idempotent first-login seed (profile, entities, categories, $5k opening balance).
   await supabase.rpc("setup_owner");
 
-  const next = parsed.data.next && parsed.data.next.startsWith("/") ? parsed.data.next : "/";
+  const next = parsed.data.next && /^\/(?![\/\\])/.test(parsed.data.next) ? parsed.data.next : "/";
   redirect(next);
 }
 

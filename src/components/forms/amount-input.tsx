@@ -12,6 +12,7 @@ export function AmountInput({
   autoFocus,
   error,
   id = "amount",
+  locked,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -20,6 +21,8 @@ export function AmountInput({
   autoFocus?: boolean;
   error?: string;
   id?: string;
+  /** currency follows the selected account; show it instead of a toggle */
+  locked?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -47,15 +50,21 @@ export function AmountInput({
           className="num h-12 w-full bg-transparent text-2xl font-medium tracking-[-0.02em] text-ink outline-none placeholder:text-ink-3"
           aria-invalid={error ? true : undefined}
         />
-        <Segmented
-          size="sm"
-          value={currency}
-          onChange={onCurrencyChange}
-          options={[
-            { value: "USD", label: "USD" },
-            { value: "MAD", label: "MAD" },
-          ]}
-        />
+        {locked ? (
+          <span className="label mr-1.5 rounded-md bg-raised px-2 py-1" title="Currency follows the account">
+            {currency}
+          </span>
+        ) : (
+          <Segmented
+            size="sm"
+            value={currency}
+            onChange={onCurrencyChange}
+            options={[
+              { value: "USD", label: "USD" },
+              { value: "MAD", label: "MAD" },
+            ]}
+          />
+        )}
       </div>
       {error ? (
         <p className="text-xs text-coral" role="alert">

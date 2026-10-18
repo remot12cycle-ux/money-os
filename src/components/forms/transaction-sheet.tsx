@@ -64,10 +64,10 @@ function TransactionForm({
 
   const [type, setType] = useState<TxType>(initial?.type ?? defaults?.type ?? "expense");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
-  const [currency, setCurrency] = useState<Currency>(
-    initial?.currency ?? defaults?.currency ?? firstAccount?.currency ?? profile.base_currency,
-  );
   const [accountId, setAccountId] = useState(initial?.account_id ?? defaults?.account_id ?? firstAccount?.id ?? "");
+  // The account owns the currency (enforced server-side too).
+  const currency: Currency =
+    accounts.find((a) => a.id === accountId)?.currency ?? initial?.currency ?? firstAccount?.currency ?? profile.base_currency;
   const [toAccountId, setToAccountId] = useState(initial?.to_account_id ?? "");
   const [entityId, setEntityId] = useState(
     initial?.entity_id ?? defaults?.entity_id ?? entities.find((e) => e.kind === "personal")?.id ?? "",
@@ -77,12 +77,6 @@ function TransactionForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [meta, setMeta] = useState<Meta>((initial?.meta as Meta) ?? {});
 
-  function pickAccount(id: string) {
-    setAccountId(id);
-    // Follow the account's currency for new rows.
-    const acc = accounts.find((a) => a.id === id);
-    if (acc && !initial) setCurrency(acc.currency);
-  }
 
   const entity = entities.find((e) => e.id === entityId);
   const isCod = entity?.slug === "cod-africa";
@@ -111,6 +105,7 @@ function TransactionForm({
       entity_id: entityId || null,
       occurred_on: date,
       note: note || null,
+      // Only send meta when the COD block was shown; otherwise the server keeps what's stored.
       meta: isCod ? meta : undefined,
     };
     start(async () => {
@@ -150,14 +145,15 @@ function TransactionForm({
           value={amount}
           onChange={setAmount}
           currency={currency}
-          onCurrencyChange={setCurrency}
+          onCurrencyChange={() => {}}
+          locked
           autoFocus
           error={errors.amount}
         />
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={type === "transfer" ? "From account" : "Account"} htmlFor="account" error={errors.account_id}>
-            <Select id="account" value={accountId} onChange={(e) => pickAccount(e.target.value)}>
+            <Select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
               {activeAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} · {a.currency}

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { listTransactions } from "@/lib/data/transactions";
 
 export const runtime = "nodejs";
 
 function csvCell(v: unknown) {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = v == null ? "" : String(v);
+  // Spreadsheets treat leading = + - @ (and tab/CR) as formulas; neutralise user-supplied text.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export async function GET() {
@@ -13,8 +16,8 @@ export async function GET() {
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims?.sub) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [{ data: txs }, { data: accounts }, { data: entities }, { data: categories }] = await Promise.all([
-    supabase.from("transactions").select("*").order("occurred_on", { ascending: false }).limit(50000),
+  const [txs, { data: accounts }, { data: entities }, { data: categories }] = await Promise.all([
+    listTransactions({ limit: 100_000 }),
     supabase.from("accounts").select("id, name"),
     supabase.from("entities").select("id, name"),
     supabase.from("categories").select("id, name"),
@@ -24,7 +27,7 @@ export async function GET() {
 
   const header = ["date", "type", "amount", "currency", "amount_base", "fx_rate", "account", "to_account", "entity", "category", "note", "source", "external_id", "meta"];
   const lines = [header.join(",")];
-  for (const t of txs ?? []) {
+  for (const t of txs) {
     lines.push(
       [
         t.occurred_on,

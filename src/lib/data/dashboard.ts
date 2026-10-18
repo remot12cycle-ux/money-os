@@ -54,9 +54,9 @@ export async function getDashboard(month = currentMonth()) {
       .from("tasks")
       .select("*")
       .neq("status", "done")
+      .or(`due_on.is.null,due_on.lte.${todayISO()}`)
       .order("due_on", { ascending: true, nullsFirst: false })
-      .order("priority")
-      .limit(6),
+      .limit(12),
   ]);
 
   const monthTx = since6.filter((t) => t.occurred_on >= from && t.occurred_on <= to) as TxLite[];
@@ -78,8 +78,10 @@ export async function getDashboard(month = currentMonth()) {
 
   const target = targetProgress(monthPnl, Number(profile.monthly_target), profile.target_metric);
 
-  const today = todayISO();
-  const tasks = (tasksRes.data ?? []).filter((t) => !t.due_on || t.due_on <= today).slice(0, 5);
+  const rank = { high: 0, medium: 1, low: 2 } as const;
+  const tasks = (tasksRes.data ?? [])
+    .sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999") || rank[a.priority] - rank[b.priority])
+    .slice(0, 5);
 
   return {
     base,

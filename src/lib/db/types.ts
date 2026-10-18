@@ -116,6 +116,7 @@ export type RecurringRow = Timestamps & {
   entity_id: string | null;
   cadence: Cadence;
   next_run_on: string;
+  day_of_month: number | null;
   is_active: boolean;
 };
 
@@ -230,6 +231,15 @@ export type Database = {
     };
     Functions: {
       setup_owner: { Args: Record<string, never>; Returns: undefined };
+      pay_committed: {
+        Args: { p_id: string; p_account: string; p_paid_on: string; p_amount?: number | null };
+        Returns: string;
+      };
+      reopen_committed: { Args: { p_id: string }; Returns: undefined };
+      record_debt_payment: {
+        Args: { p_debt: string; p_amount: number; p_paid_on: string; p_account?: string | null };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

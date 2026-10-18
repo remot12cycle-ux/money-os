@@ -2,9 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { rateToBase } from "@/lib/money";
 import { fail, fromZod, ok, type ActionResult } from "./result";
 
 const schema = z.object({
@@ -53,53 +51,28 @@ export async function saveCommitted(input: CommittedInput): Promise<ActionResult
   return ok({ id: data.id });
 }
 
-/** Marks a committed item paid: creates the real expense and closes it. */
-export async function markCommittedPaid(input: {
-  id: string;
-  account_id: string;
-  paid_on: string;
-  amount?: number;
-}): Promise<ActionResult> {
-  const user = await requireUser();
+const paySchema = z.object({
+  id: z.uuid(),
+  account_id: z.uuid(),
+  paid_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amount: z.coerce.number().positive().optional(),
+});
+
+/**
+ * Marks a committed item paid. One SQL function creates the expense (converted
+ * into the paying account's currency if needed) and closes the item atomically.
+ */
+export async function markCommittedPaid(input: z.input<typeof paySchema>): Promise<ActionResult> {
+  const parsed = paySchema.safeParse(input);
+  if (!parsed.success) return fromZod(parsed.error);
   const supabase = await createClient();
-  const { data: c, error: e1 } = await supabase
-    .from("committed_payables")
-    .select("*")
-    .eq("id", input.id)
-    .single();
-  if (e1 || !c) return fail("Committed item not found");
-  if (c.status !== "open") return fail("Already closed");
-
-  const { data: p } = await supabase
-    .from("profiles")
-    .select("base_currency, usd_to_mad")
-    .eq("id", user.id)
-    .single();
-  const fx = rateToBase(c.currency, (p?.base_currency ?? "USD") as "USD" | "MAD", Number(p?.usd_to_mad ?? 10));
-
-  const { data: tx, error: e2 } = await supabase
-    .from("transactions")
-    .insert({
-      type: "expense",
-      amount: input.amount ?? c.amount,
-      currency: c.currency,
-      fx_rate_to_base: fx,
-      account_id: input.account_id,
-      category_id: c.category_id,
-      entity_id: c.entity_id,
-      occurred_on: input.paid_on,
-      note: c.title,
-      source: "committed",
-    })
-    .select("id")
-    .single();
-  if (e2) return fail(e2.message);
-
-  const { error: e3 } = await supabase
-    .from("committed_payables")
-    .update({ status: "paid", paid_transaction_id: tx.id, account_id: input.account_id })
-    .eq("id", c.id);
-  if (e3) return fail(e3.message);
+  const { error } = await supabase.rpc("pay_committed", {
+    p_id: parsed.data.id,
+    p_account: parsed.data.account_id,
+    p_paid_on: parsed.data.paid_on,
+    p_amount: parsed.data.amount ?? null,
+  });
+  if (error) return fail(error.message);
   revalidate();
   return ok(undefined);
 }
@@ -115,12 +88,11 @@ export async function cancelCommitted(id: string): Promise<ActionResult> {
   return ok(undefined);
 }
 
+/** Reopens a paid item and removes the expense it created, so nothing is counted twice. */
 export async function reopenCommitted(id: string): Promise<ActionResult> {
+  if (!z.uuid().safeParse(id).success) return fail("Invalid id");
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("committed_payables")
-    .update({ status: "open", paid_transaction_id: null })
-    .eq("id", id);
+  const { error } = await supabase.rpc("reopen_committed", { p_id: id });
   if (error) return fail(error.message);
   revalidate();
   return ok(undefined);

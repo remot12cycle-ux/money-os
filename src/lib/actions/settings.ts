@@ -25,7 +25,6 @@ export async function setTheme(theme: Theme): Promise<ActionResult> {
 /* ───────── profile ───────── */
 const profileSchema = z.object({
   display_name: z.string().max(80).optional().nullable(),
-  base_currency: z.enum(["USD", "MAD"]),
   starting_capital: z.coerce.number().min(0),
   monthly_target: z.coerce.number().min(0),
   target_metric: z.enum(["net_profit", "revenue"]),
@@ -49,6 +48,12 @@ export async function saveProfile(input: ProfileInput): Promise<ActionResult> {
     })
     .eq("id", user.id);
   if (error) return fail(error.message);
+  // Keep the seeded opening-balance row in step with the starting capital so "vs start" stays honest.
+  await supabase
+    .from("transactions")
+    .update({ amount: parsed.data.starting_capital })
+    .eq("owner_id", user.id)
+    .eq("source", "opening");
   revalidateAll();
   return ok(undefined);
 }
@@ -57,10 +62,16 @@ export async function saveMonthlyTarget(input: {
   monthly_target: number;
   target_metric: "net_profit" | "revenue";
 }): Promise<ActionResult> {
+  const parsed = z
+    .object({ monthly_target: z.coerce.number().min(0, "Target must be zero or more"), target_metric: z.enum(["net_profit", "revenue"]) })
+    .safeParse(input);
+  if (!parsed.success) return fromZod(parsed.error);
   const user = await requireUser();
   const supabase = await createClient();
-  if (!(input.monthly_target >= 0)) return fail("Target must be zero or more");
-  const { error } = await supabase.from("profiles").update(input).eq("id", user.id);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ monthly_target: parsed.data.monthly_target, target_metric: parsed.data.target_metric })
+    .eq("id", user.id);
   if (error) return fail(error.message);
   revalidateAll();
   return ok(undefined);
@@ -177,6 +188,17 @@ export async function saveAccount(input: AccountInput): Promise<ActionResult> {
   const v = parsed.data;
   const supabase = await createClient();
   const row = { name: v.name, type: v.type, currency: v.currency, is_archived: v.is_archived ?? false };
+  if (v.id) {
+    // An account's currency is fixed once it holds transactions (balances would become meaningless).
+    const { data: current } = await supabase.from("accounts").select("currency").eq("id", v.id).maybeSingle();
+    if (current && current.currency !== v.currency) {
+      const { count } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .or(`account_id.eq.${v.id},to_account_id.eq.${v.id}`);
+      if (count && count > 0) return fail("This account already has transactions; its currency can't change. Create a new account instead.");
+    }
+  }
   const { error } = v.id
     ? await supabase.from("accounts").update(row).eq("id", v.id)
     : await supabase.from("accounts").insert(row);
@@ -254,6 +276,7 @@ export async function saveRecurring(input: RecurringInput): Promise<ActionResult
     entity_id: v.entity_id ?? null,
     cadence: v.cadence,
     next_run_on: v.next_run_on,
+    day_of_month: Number(v.next_run_on.slice(8, 10)),
     is_active: v.is_active ?? true,
   };
   const { error } = v.id

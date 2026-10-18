@@ -1,5 +1,6 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { addMonths, addWeeks, addYears, format, parseISO } from "date-fns";
+import { addMonths, addWeeks, addYears, format, getDaysInMonth, parseISO, setDate } from "date-fns";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { rateToBase } from "@/lib/money";
 import type { Database } from "@/lib/db/types";
@@ -9,10 +10,19 @@ export const runtime = "nodejs";
 
 type Client = SupabaseClient<Database>;
 
-function nextDate(iso: string, cadence: "weekly" | "monthly" | "yearly") {
+/** Next occurrence; monthly/yearly rules snap back to their anchor day (31st stays the 31st where possible). */
+function nextDate(iso: string, cadence: "weekly" | "monthly" | "yearly", anchorDay: number | null) {
   const d = parseISO(iso);
-  const n = cadence === "weekly" ? addWeeks(d, 1) : cadence === "monthly" ? addMonths(d, 1) : addYears(d, 1);
-  return format(n, "yyyy-MM-dd");
+  if (cadence === "weekly") return format(addWeeks(d, 1), "yyyy-MM-dd");
+  const n = cadence === "monthly" ? addMonths(d, 1) : addYears(d, 1);
+  const day = Math.min(anchorDay ?? d.getDate(), getDaysInMonth(n));
+  return format(setDate(n, day), "yyyy-MM-dd");
+}
+
+function secretMatches(header: string | null, secret: string) {
+  const a = Buffer.from(header ?? "");
+  const b = Buffer.from(`Bearer ${secret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** Materialises every due rule (next_run_on <= today) into transactions. Loops to catch up missed periods. */
@@ -59,7 +69,7 @@ async function runDue(supabase: Client, ownerFilter?: string) {
         });
         if (!e) created++;
       }
-      run = nextDate(run, rule.cadence);
+      run = nextDate(run, rule.cadence, rule.day_of_month);
     }
     await supabase.from("recurring_rules").update({ next_run_on: run }).eq("id", rule.id);
   }
@@ -69,7 +79,7 @@ async function runDue(supabase: Client, ownerFilter?: string) {
 /** Vercel cron (GET with CRON_SECRET) — runs for every owner via the service role. */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || !secretMatches(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
