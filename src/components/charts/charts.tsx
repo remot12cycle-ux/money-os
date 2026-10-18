@@ -243,7 +243,7 @@ export function TargetRing({
           strokeDasharray={circ}
           initial={{ strokeDashoffset: circ }}
           animate={{ strokeDashoffset: circ * (1 - pct) }}
-          transition={reduce ? { duration: 0 } : { duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          transition={reduce ? { duration: 0 } : { duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>

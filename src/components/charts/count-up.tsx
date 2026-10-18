@@ -9,7 +9,7 @@ export function CountUp({
   value,
   currency,
   className,
-  duration = 0.7,
+  duration = 0.5,
   ...opts
 }: { value: number; currency: Currency; className?: string; duration?: number } & FormatOptions) {
   const reduce = useReducedMotion();
@@ -19,7 +19,7 @@ export function CountUp({
   useEffect(() => {
     const controls = animate(fromRef.current, value, {
       duration: reduce ? 0 : duration,
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.23, 1, 0.32, 1],
       onUpdate: (v) => setShown(v),
       onComplete: () => {
         fromRef.current = value;

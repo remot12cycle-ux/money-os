@@ -70,7 +70,7 @@ export function Sheet({
                       ? { y: "100%" }
                       : { x: "100%" }
                 }
-                transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
+                transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
               >
                 <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-3">
                   <div className="min-w-0">
@@ -162,7 +162,7 @@ export function ConfirmDialog({
                 initial={{ opacity: 0, scale: 0.96, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 4 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
               >
                 <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
                 {description ? (

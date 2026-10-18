@@ -115,7 +115,7 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
             <Button variant="secondary" onClick={() => start(async () => { const r = await refreshRate(); if (!r.ok) return void toast.error(r.error); setForm((f) => ({ ...f, usd_to_mad: String(r.data.rate) })); toast.success(`Live rate: 1 USD = ${r.data.rate} MAD`); router.refresh(); })} loading={pending}>
               <RefreshCw /> Refresh live rate
             </Button>
-            <Button variant="primary" onClick={save} loading={pending}>Save rate</Button>
+            <Button variant="secondary" onClick={save} loading={pending}>Save rate</Button>
           </div>
           <p className="text-xs text-ink-3">New transactions snapshot the rate at the moment they are added, so past totals don&apos;t shift when the rate moves.</p>
         </div>

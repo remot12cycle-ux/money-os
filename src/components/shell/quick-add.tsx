@@ -80,21 +80,14 @@ export function QuickAdd() {
           {palette ? (
             <Dialog.Portal forceMount>
               <Dialog.Overlay asChild forceMount>
-                <motion.div
-                  className="fixed inset-0 z-40 bg-black/50"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                />
+                <motion.div className="fixed inset-0 z-40 bg-black/50" initial={false} exit={{ opacity: 0, transition: { duration: 0.08 } }} />
               </Dialog.Overlay>
               <Dialog.Content asChild forceMount aria-describedby={undefined}>
+                {/* Opened dozens of times a day: no entrance animation, only a very short exit fade. */}
                 <motion.div
                   className="fixed left-1/2 top-[12vh] z-50 w-[min(94vw,560px)] -translate-x-1/2 overflow-hidden rounded-lg border border-hairline bg-canvas shadow-float outline-none"
-                  initial={{ opacity: 0, scale: 0.97, y: -6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98, y: -4 }}
-                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                  initial={false}
+                  exit={{ opacity: 0, transition: { duration: 0.08 } }}
                 >
                   <Dialog.Title className="sr-only">Quick add</Dialog.Title>
                   <Command label="Quick add" loop>
