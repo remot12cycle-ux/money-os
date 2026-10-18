@@ -3,7 +3,7 @@
 ## State
 - Phases 1–6 done (spec, research, DESIGN.md, full build, motion, independent review + all fixes).
 - `npm run typecheck`, `npm run lint`, `npm test` (15 tests) and `next build` all pass on the last commit.
-- Phase 7 (launch) is in progress: deploying to Vercel by uploading files through the Vercel MCP.
+- Phase 7 (launch) DONE: production deployment dpl_7fs1qHSfTSN8anoVyp8QzJvo5ANy is READY at https://money-os-sage-tau.vercel.app (alias money-os-mohamed-a6c0.vercel.app). The app shows /setup until the real Supabase env vars are added.
 
 ## Vercel
 - Project created: `money-os` — id `prj_inbSc3kvjJTbk0hiM77p6BLeJN0H` (account team `team_ff9xSIGiWhlbGQ1rmLb3QHJS`, hobby plan).

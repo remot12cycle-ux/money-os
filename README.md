@@ -6,6 +6,8 @@ and an ingest API for other apps.
 
 Stack: Next.js 16 · React 19 · Tailwind v4 · Motion · Recharts · Supabase (Postgres + Auth) · Vercel.
 
+Live: https://money-os-sage-tau.vercel.app (shows the `/setup` guide until the Supabase env vars below are set).
+
 ## Setup (10 minutes)
 
 1. **Supabase project** — create one at supabase.com.
