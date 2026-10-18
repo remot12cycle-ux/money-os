@@ -537,3 +537,7 @@ revoke all on function public.record_debt_payment(uuid, numeric, date, uuid) fro
 grant execute on function public.pay_committed(uuid, uuid, date, numeric) to authenticated;
 grant execute on function public.reopen_committed(uuid) to authenticated;
 grant execute on function public.record_debt_payment(uuid, numeric, date, uuid) to authenticated;
+
+-- ───────────────────────── server-side roles (ingest API + cron) ─────────────────────────
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;

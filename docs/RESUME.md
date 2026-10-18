@@ -50,3 +50,7 @@ Regenerate the exact list with: `node` snippet in the session history, or simply
 ## Nice-to-haves noted during review (not blocking)
 - Owner can connect GitHub later and link the repo to the Vercel project for auto-deploys.
 - `base_currency` is now fixed after setup by design; `starting_capital` edits also update the opening row.
+
+## Supabase (done 2026-10-18)
+- Project `money-os` ref `vfaaubpsiicvpnirkrhu` (us-east-1), migrations 0001 + 0002 applied, owner user remot12cycle@gmail.com created and seeded.
+- Vercel env set: SUPABASE URL, publishable key, CRON_SECRET. Missing: SUPABASE_SERVICE_ROLE_KEY (owner must paste it; MCP cannot read secret keys) — needed only for /api/ingest and the daily cron.
