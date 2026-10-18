@@ -461,7 +461,7 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
           </div>
           <div>
             <p className="label mb-1">Headers</p>
-            <code className="num block rounded-md bg-surface px-2 py-1.5 text-xs">Authorization: Bearer mos_…{"\n"}Content-Type: application/json</code>
+            <code className="num block whitespace-pre rounded-md bg-surface px-2 py-1.5 text-xs">{"Authorization: Bearer mos_…\nContent-Type: application/json"}</code>
           </div>
           <div>
             <p className="label mb-1">Body (one object or an array of up to 500)</p>

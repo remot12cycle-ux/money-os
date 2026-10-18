@@ -3,8 +3,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/api/ingest", "/api/cron", "/api/health"];
 
+function supabaseConfigured() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url) && Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+
+  // Not wired to Supabase yet (fresh deploy): show the setup guide instead of crashing.
+  if (!supabaseConfigured() && !process.env.MONEYOS_PREVIEW_SUB) {
+    if (pathname === "/setup" || pathname.startsWith("/api/health")) return supabaseResponse;
+    return NextResponse.redirect(new URL("/setup", request.url));
+  }
+  if (pathname === "/setup") return NextResponse.redirect(new URL("/", request.url));
 
   // Local preview mode: no real auth server, everyone is the preview owner.
   if (process.env.MONEYOS_PREVIEW_SUB && !(process.env.NODE_ENV === "production" && process.env.VERCEL)) {
@@ -34,7 +47,6 @@ export async function updateSession(request: NextRequest) {
   // Refreshes the session cookie if needed and verifies the JWT signature.
   const { data } = await supabase.auth.getClaims();
   const isAuthed = Boolean(data?.claims?.sub);
-  const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (!isAuthed && !isPublic) {
