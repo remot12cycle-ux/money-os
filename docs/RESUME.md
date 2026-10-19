@@ -57,6 +57,5 @@ Regenerate the exact list with: `node` snippet in the session history, or simply
 
 ## GitHub (done 2026-10-19)
 - Private repo `remot12cycle-ux/money-os`, branch `main` pushed (no `.env*` tracked). Claude GitHub App installed → Claude can push.
-- Vercel ↔ GitHub link: NOT yet. Vercel account has no GitHub namespace connected (`git_namespaces` = []), and the MCP has no "link repo" call.
-  Owner action: Vercel → money-os → Settings → Git → Connect Git Repository → GitHub → `remot12cycle-ux/money-os`.
-  Until then, deploy manually via MCP (upload_file + create_deployment) as before.
+- Vercel ↔ GitHub linked 2026-10-19 (via owner's Chrome). Every push to `main` deploys to production; other branches get previews.
+  Manual MCP deploys are no longer needed — just commit + push.
