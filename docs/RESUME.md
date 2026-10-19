@@ -53,7 +53,7 @@ Regenerate the exact list with: `node` snippet in the session history, or simply
 
 ## Supabase (done 2026-10-18)
 - Project `money-os` ref `vfaaubpsiicvpnirkrhu` (us-east-1), migrations 0001 + 0002 applied, owner user remot12cycle@gmail.com created and seeded.
-- Vercel env set: SUPABASE URL, publishable key, CRON_SECRET. Missing: SUPABASE_SERVICE_ROLE_KEY (owner must paste it; MCP cannot read secret keys) — needed only for /api/ingest and the daily cron.
+- Vercel env set: SUPABASE URL, publishable key, CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY (secret, prod+preview, added 2026-10-19). Setup complete.
 
 ## GitHub (done 2026-10-19)
 - Private repo `remot12cycle-ux/money-os`, branch `main` pushed (no `.env*` tracked). Claude GitHub App installed → Claude can push.
