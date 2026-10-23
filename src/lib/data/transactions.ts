@@ -8,6 +8,7 @@ export type TxFilters = {
   from?: string;
   to?: string;
   entity?: string;
+  project?: string;
   account?: string;
   category?: string;
   type?: TxType;
@@ -48,6 +49,8 @@ export async function listTransactions(f: TxFilters = {}): Promise<TransactionRo
     if (fromD) q = q.gte("occurred_on", fromD);
     if (toD) q = q.lte("occurred_on", toD);
     if (entity) q = q.eq("entity_id", entity);
+    const project = uuidOr(f.project);
+    if (project) q = q.eq("project_id", project);
     if (account) q = q.or(`account_id.eq.${account},to_account_id.eq.${account}`);
     if (category) q = q.eq("category_id", category);
     if (f.type) q = q.eq("type", f.type);
@@ -57,12 +60,12 @@ export async function listTransactions(f: TxFilters = {}): Promise<TransactionRo
   }, limit);
 }
 
-export async function listMonth(month: string): Promise<TransactionRow[]> {
-  const { from, to } = monthRange(month);
+export async function listMonth(month: string, startDay = 1): Promise<TransactionRow[]> {
+  const { from, to } = monthRange(month, startDay);
   return listTransactions({ from, to, limit: 20_000 });
 }
 
-export type TxChartRow = Pick<TransactionRow, "type" | "amount_base" | "entity_id" | "occurred_on" | "category_id" | "source">;
+export type TxChartRow = Pick<TransactionRow, "type" | "amount_base" | "entity_id" | "project_id" | "occurred_on" | "category_id" | "source">;
 
 /** Light rows for charts over a long window (paged, ordered). */
 export async function listSince(fromISO: string): Promise<TxChartRow[]> {
@@ -70,7 +73,7 @@ export async function listSince(fromISO: string): Promise<TxChartRow[]> {
   return fetchAll<TxChartRow>((from, to) =>
     supabase
       .from("transactions")
-      .select("type, amount_base, entity_id, occurred_on, category_id, source")
+      .select("type, amount_base, entity_id, project_id, occurred_on, category_id, source")
       .gte("occurred_on", fromISO)
       .order("occurred_on", { ascending: true })
       .order("id", { ascending: true })
@@ -84,7 +87,7 @@ export async function listAllLite(): Promise<TxChartRow[]> {
   return fetchAll<TxChartRow>((from, to) =>
     supabase
       .from("transactions")
-      .select("type, amount_base, entity_id, occurred_on, category_id, source")
+      .select("type, amount_base, entity_id, project_id, occurred_on, category_id, source")
       .order("occurred_on", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to),

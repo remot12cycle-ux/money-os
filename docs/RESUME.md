@@ -59,3 +59,12 @@ Regenerate the exact list with: `node` snippet in the session history, or simply
 - Private repo `remot12cycle-ux/money-os`, branch `main` pushed (no `.env*` tracked). Claude GitHub App installed → Claude can push.
 - Vercel ↔ GitHub linked 2026-10-19 (via owner's Chrome). Every push to `main` deploys to production; other branches get previews.
   Manual MCP deploys are no longer needed — just commit + push.
+
+## 2026-10-23 — periods, projects, notes, speed
+- Migration 0003 (applied to prod): `profiles.period_start_day` (1–28), `projects` (per business), `notes` (per business or project),
+  `project_id` on transactions + tasks; trigger keeps entity_id = project's entity.
+- Finance period key "yyyy-MM" = month the period STARTS in; helpers in `src/lib/dates.ts` take `startDay` (tests in dates.test.ts).
+- Businesses: `/businesses` overview cards → `/businesses/[entity-slug]` (projects table, notes, tasks) → `/businesses/[entity]/[project-slug]`.
+- Ingest accepts `project` (name/slug).
+- Speed: every action calls `revalidateApp()` (layout-wide) and clients no longer call router.refresh() (was rendering twice);
+  loading.tsx skeletons on every route; nav pending pulse; requireUser cached; ref data loads in one parallel round trip.

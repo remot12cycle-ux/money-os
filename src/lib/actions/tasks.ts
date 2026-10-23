@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateApp } from "@/lib/revalidate";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fail, fromZod, ok, type ActionResult } from "./result";
@@ -10,13 +10,14 @@ const schema = z.object({
   title: z.string().min(1, "Write the task").max(200),
   notes: z.string().max(2000).optional().nullable(),
   entity_id: z.uuid().optional().nullable(),
+  project_id: z.uuid().optional().nullable(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   status: z.enum(["todo", "doing", "done"]).optional(),
 });
 export type TaskInput = z.input<typeof schema>;
 
-const revalidate = () => ["/", "/tasks"].forEach((p) => revalidatePath(p));
+const revalidate = revalidateApp;
 
 export async function saveTask(input: TaskInput): Promise<ActionResult<{ id: string }>> {
   const parsed = schema.safeParse(input);
@@ -27,6 +28,7 @@ export async function saveTask(input: TaskInput): Promise<ActionResult<{ id: str
     title: v.title,
     notes: v.notes ?? null,
     entity_id: v.entity_id ?? null,
+    project_id: v.project_id ?? null,
     priority: v.priority,
     due_on: v.due_on ?? null,
     ...(v.status ? { status: v.status, done_at: v.status === "done" ? new Date().toISOString() : null } : {}),

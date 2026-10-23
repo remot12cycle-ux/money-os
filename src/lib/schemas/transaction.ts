@@ -14,6 +14,7 @@ export const txSchema = z
     to_account_id: uuid.optional().nullable(),
     category_id: uuid.optional().nullable(),
     entity_id: uuid.optional().nullable(),
+    project_id: uuid.optional().nullable(),
     occurred_on: dateISO,
     note: z.string().max(500).optional().nullable(),
     meta: z

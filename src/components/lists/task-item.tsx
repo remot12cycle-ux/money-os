@@ -1,7 +1,6 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Check, Pencil, Trash2 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
@@ -24,7 +23,6 @@ export function TaskItem({
   dragHandle?: React.ReactNode;
 }) {
   const { entities } = useRef_();
-  const router = useRouter();
   const [, start] = useTransition();
   const reduce = useReducedMotion();
   const [done, setDone] = useOptimistic(task.status === "done");
@@ -37,7 +35,6 @@ export function TaskItem({
       setDone(next);
       const res = await setTaskStatus(task.id, next ? "done" : "todo");
       if (!res.ok) toast.error(res.error);
-      router.refresh();
     });
   }
 
@@ -46,7 +43,6 @@ export function TaskItem({
       const res = await deleteTask(task.id);
       if (!res.ok) toast.error(res.error);
       else toast.success("Task deleted");
-      router.refresh();
     });
   }
 

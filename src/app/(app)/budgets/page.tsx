@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getRefData } from "@/lib/data/core";
 import { listMonth } from "@/lib/data/transactions";
-import { currentMonth, monthRange } from "@/lib/dates";
+import { monthParam } from "@/lib/dates";
 import { pnl, targetProgress, type TxLite } from "@/lib/metrics";
 import { MonthPicker } from "@/components/month-picker";
 import { PageHeader } from "@/components/ui/primitives";
@@ -12,12 +12,14 @@ export const metadata: Metadata = { title: "Budgets & Goals" };
 
 export default async function BudgetsPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const sp = await searchParams;
-  const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : currentMonth();
+  const ref = await getRefData();
+  const sd = ref.profile.period_start_day;
+  const month = monthParam(sp.month, sd);
   const supabase = await createClient();
-  const [ref, txs, budgetsRes, goalsRes] = await Promise.all([
-    getRefData(),
-    listMonth(month),
-    supabase.from("budgets").select("*").eq("month", `${monthRange(month).from}`),
+  const [txs, budgetsRes, goalsRes] = await Promise.all([
+    listMonth(month, sd),
+    // budgets are keyed by the period's key month ("yyyy-MM-01"), whatever the start day
+    supabase.from("budgets").select("*").eq("month", `${month}-01`),
     supabase.from("goals").select("*").order("is_done").order("created_at"),
   ]);
 

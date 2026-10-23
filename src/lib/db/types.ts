@@ -32,6 +32,8 @@ export type ProfileRow = Timestamps & {
   target_metric: TargetMetric;
   theme: Theme;
   display_name: string | null;
+  /** Day (1–28) the owner's finance month starts on. */
+  period_start_day: number;
 };
 
 export type AccountRow = Timestamps & {
@@ -82,6 +84,7 @@ export type TransactionRow = Timestamps & {
   to_account_id: string | null;
   category_id: string | null;
   entity_id: string | null;
+  project_id: string | null;
   occurred_on: string;
   note: string | null;
   source: TxSource;
@@ -168,11 +171,37 @@ export type TaskRow = Timestamps & {
   title: string;
   notes: string | null;
   entity_id: string | null;
+  project_id: string | null;
   priority: TaskPriority;
   due_on: string | null;
   status: TaskStatus;
   done_at: string | null;
   sort_order: number;
+};
+
+export type ProjectStatus = "idea" | "active" | "paused" | "archived";
+
+export type ProjectRow = Timestamps & {
+  id: string;
+  owner_id: string;
+  entity_id: string;
+  name: string;
+  slug: string;
+  status: ProjectStatus;
+  description: string | null;
+  url: string | null;
+  color: string | null;
+  sort_order: number;
+};
+
+export type NoteRow = Timestamps & {
+  id: string;
+  owner_id: string;
+  entity_id: string | null;
+  project_id: string | null;
+  title: string | null;
+  body: string;
+  is_pinned: boolean;
 };
 
 export type ApiKeyRow = {
@@ -225,6 +254,8 @@ export type Database = {
       debt_payments: Table<DebtPaymentRow, "debt_id" | "amount">;
       tasks: Table<TaskRow, "title">;
       api_keys: Table<ApiKeyRow, "name" | "key_hash" | "key_prefix">;
+      projects: Table<ProjectRow, "entity_id" | "name" | "slug">;
+      notes: Table<NoteRow>;
     };
     Views: {
       account_balances: { Row: AccountBalanceRow; Relationships: [] };

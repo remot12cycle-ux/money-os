@@ -35,15 +35,17 @@ export async function getNetWorth() {
   };
 }
 
-export async function getDashboard(month = currentMonth()) {
+export async function getDashboard(monthArg?: string) {
   const profile = await getProfile();
+  const sd = profile.period_start_day;
+  const month = monthArg ?? currentMonth(sd);
   const base = profile.base_currency;
   const rate = Number(profile.usd_to_mad);
   const supabase = await createClient();
 
-  const months = lastNMonths(6);
-  const { from: sixFrom } = monthRange(months[0]!);
-  const { from, to } = monthRange(month);
+  const months = lastNMonths(6, sd);
+  const { from: sixFrom } = monthRange(months[0]!, sd);
+  const { from, to } = monthRange(month, sd);
 
   const [netWorth, since6, allLite, recent, tasksRes] = await Promise.all([
     getNetWorth(),
@@ -64,7 +66,7 @@ export async function getDashboard(month = currentMonth()) {
   const byEntity = pnlByEntity(monthTx);
 
   const series = months.map((m) => {
-    const r = monthRange(m);
+    const r = monthRange(m, sd);
     const p = pnl(since6.filter((t) => t.occurred_on >= r.from && t.occurred_on <= r.to) as TxLite[]);
     return { month: m, income: p.income, expenses: p.expenses, net: p.net };
   });
@@ -87,6 +89,7 @@ export async function getDashboard(month = currentMonth()) {
     base,
     rate,
     month,
+    startDay: sd,
     netWorth,
     monthPnl,
     byEntity: [...byEntity.entries()].map(([entity_id, p]) => ({ entity_id, ...p })),

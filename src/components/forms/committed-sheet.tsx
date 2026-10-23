@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -35,7 +34,6 @@ export function CommittedSheet({
 
 function CommittedForm({ initial, close }: { initial: CommittedRow | null; close: () => void }) {
   const { accounts, categories, entities, profile } = useRef_();
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -68,7 +66,6 @@ function CommittedForm({ initial, close }: { initial: CommittedRow | null; close
       }
       toast.success(initial ? "Updated" : "Committed amount added");
       close();
-      router.refresh();
     });
   }
 

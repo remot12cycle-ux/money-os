@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const other = base === "USD" ? "MAD" : "USD";
   const growthTone = nw.growth.delta > 0 ? "text-mint" : nw.growth.delta < 0 ? "text-coral" : "text-ink-2";
   const committedRatio = nw.total > 0 ? Math.min(1, nw.committed / nw.total) : 0;
-  const days = daysLeftInMonth(d.month);
+  const days = daysLeftInMonth(d.month, d.startDay);
 
   const entityRows = ref.entities
     .filter((e) => !e.is_archived)
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
 
       {/* ───────── Month: target + P&L ───────── */}
       <div className="grid gap-8 md:grid-cols-12">
-        <Section title={`${monthLabel(d.month)} target`} className="md:col-span-4">
+        <Section title={d.startDay === 1 ? `${monthLabel(d.month)} target` : `Target · ${monthLabel(d.month, d.startDay)}`} className="md:col-span-4">
           <div className="flex items-center gap-5">
             <TargetRing ratio={d.target.ratio}>
               <div className="text-center">
@@ -115,8 +115,8 @@ export default async function DashboardPage() {
           </div>
         </Section>
 
-        <Section title="Income vs expenses · 6 months" className="md:col-span-8">
-          <IncomeExpenseChart data={d.series} currency={base} />
+        <Section title={d.startDay === 1 ? "Income vs expenses · 6 months" : "Income vs expenses · 6 periods"} className="md:col-span-8">
+          <IncomeExpenseChart data={d.series} currency={base} startDay={d.startDay} />
           <div className="grid grid-cols-3 gap-4 border-t border-hairline pt-3 text-sm">
             <div>
               <p className="label">Income</p>
@@ -137,7 +137,7 @@ export default async function DashboardPage() {
       {/* ───────── Entities + tasks + recent ───────── */}
       <div className="grid gap-8 md:grid-cols-12">
         <Section
-          title="P&L by entity · this month"
+          title={d.startDay === 1 ? "P&L by entity · this month" : "P&L by entity · this period"}
           className="md:col-span-5"
           aside={
             <Link href="/businesses" className="flex items-center gap-1 text-xs text-ink-2 hover:text-ink">

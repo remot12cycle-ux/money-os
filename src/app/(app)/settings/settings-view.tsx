@@ -16,7 +16,7 @@ import {
 } from "@/lib/actions/settings";
 import type { AccountRow, CategoryRow, EntityRow, RecurringRow } from "@/lib/db/types";
 import { formatMoney } from "@/lib/money";
-import { humanDate, todayISO } from "@/lib/dates";
+import { currentMonth, humanDate, monthLabel, todayISO } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 type ApiKeyLite = { id: string; name: string; key_prefix: string; last_used_at: string | null; revoked_at: string | null; created_at: string };
@@ -57,7 +57,6 @@ export function SettingsView({ apiKeys, recurring, refData }: { apiKeys: ApiKeyL
 /* ─────────── General ─────────── */
 function GeneralTab({ ref_ }: { ref_: RefData }) {
   const p = ref_.profile;
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [form, setForm] = useState({
     display_name: p.display_name ?? "",
@@ -65,14 +64,16 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
     monthly_target: String(p.monthly_target),
     target_metric: p.target_metric,
     usd_to_mad: String(p.usd_to_mad),
+    period_start_day: String(p.period_start_day ?? 1),
   });
+  const sd = Number(form.period_start_day) || 1;
+  const sdValid = sd >= 1 && sd <= 28;
 
   function save() {
     start(async () => {
-      const r = await saveProfile({ ...form, starting_capital: Number(form.starting_capital), monthly_target: Number(form.monthly_target), usd_to_mad: Number(form.usd_to_mad) });
+      const r = await saveProfile({ ...form, starting_capital: Number(form.starting_capital), monthly_target: Number(form.monthly_target), usd_to_mad: Number(form.usd_to_mad), period_start_day: Number(form.period_start_day) });
       if (!r.ok) return void toast.error(r.error);
       toast.success("Saved");
-      router.refresh();
     });
   }
 
@@ -100,6 +101,32 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
           </div>
           <Button type="submit" variant="primary" loading={pending} className="self-start">Save</Button>
         </form>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-hairline pt-6">
+          <h3 className="label">Your finance month</h3>
+          <Field
+            label="Month starts on day"
+            htmlFor="s_period"
+            hint={
+              sdValid
+                ? sd === 1
+                  ? "Calendar months: 1st → last day."
+                  : `Each month runs from the ${ordinal(sd)} to the ${ordinal(sd - 1)} of the next month — e.g. ${monthLabel(currentMonth(sd), sd)}.`
+                : "Pick a day from 1 to 28 (28 is the latest every month has)."
+            }
+          >
+            <div className="flex items-center gap-2">
+              <Select id="s_period" value={form.period_start_day} onChange={(e) => setForm({ ...form, period_start_day: e.target.value })} className="w-28 num">
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={String(d)}>{d}</option>
+                ))}
+              </Select>
+              <span className="text-sm text-ink-2">{sdValid && sd !== 1 ? `ends on the ${ordinal(sd - 1)}` : "ends on the last day"}</span>
+            </div>
+          </Field>
+          <p className="text-xs text-ink-3">Set it to your payday (or whenever your month really starts). Dashboard, budgets, targets and businesses all follow it.</p>
+          <Button variant="secondary" onClick={save} loading={pending} className="self-start">Save month</Button>
+        </div>
       </Section>
 
       <Section title="Exchange rate">
@@ -111,7 +138,7 @@ function GeneralTab({ ref_ }: { ref_: RefData }) {
             </div>
           </Field>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => start(async () => { const r = await refreshRate(); if (!r.ok) return void toast.error(r.error); setForm((f) => ({ ...f, usd_to_mad: String(r.data.rate) })); toast.success(`Live rate: 1 USD = ${r.data.rate} MAD`); router.refresh(); })} loading={pending}>
+            <Button variant="secondary" onClick={() => start(async () => { const r = await refreshRate(); if (!r.ok) return void toast.error(r.error); setForm((f) => ({ ...f, usd_to_mad: String(r.data.rate) })); toast.success(`Live rate: 1 USD = ${r.data.rate} MAD`); })} loading={pending}>
               <RefreshCw /> Refresh live rate
             </Button>
             <Button variant="secondary" onClick={save} loading={pending}>Save rate</Button>
@@ -140,7 +167,6 @@ function ExportCard() {
 
 /* ─────────── Entities ─────────── */
 function EntitiesTab({ entities }: { entities: EntityRow[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [edit, setEdit] = useState<EntityRow | null | "new">(null);
   const [form, setForm] = useState({ name: "", kind: "business" as EntityRow["kind"], color: "#5BB5F5" });
@@ -156,14 +182,12 @@ function EntitiesTab({ entities }: { entities: EntityRow[] }) {
       if (!r.ok) return void toast.error(r.error);
       toast.success("Saved");
       setEdit(null);
-      router.refresh();
     });
   }
   function archive(e: EntityRow) {
     start(async () => {
       const r = await saveEntity({ id: e.id, name: e.name, kind: e.kind, color: e.color, is_archived: !e.is_archived });
       if (!r.ok) return void toast.error(r.error);
-      router.refresh();
     });
   }
 
@@ -194,14 +218,13 @@ function EntitiesTab({ entities }: { entities: EntityRow[] }) {
           <button type="submit" className="hidden" aria-hidden />
         </form>
       </Sheet>
-      <ConfirmDialog open={Boolean(confirm)} onOpenChange={(o) => !o && setConfirm(null)} title={`Delete ${confirm?.name}?`} description="Transactions keep their amounts but lose this entity. Prefer archiving if you might need it again." loading={pending} onConfirm={() => confirm && start(async () => { const r = await deleteEntity(confirm.id); if (!r.ok) toast.error(r.error); else toast.success("Deleted"); setConfirm(null); router.refresh(); })} />
+      <ConfirmDialog open={Boolean(confirm)} onOpenChange={(o) => !o && setConfirm(null)} title={`Delete ${confirm?.name}?`} description="Transactions keep their amounts but lose this entity. Prefer archiving if you might need it again." loading={pending} onConfirm={() => confirm && start(async () => { const r = await deleteEntity(confirm.id); if (!r.ok) toast.error(r.error); else toast.success("Deleted"); setConfirm(null); })} />
     </Section>
   );
 }
 
 /* ─────────── Categories ─────────── */
 function CategoriesTab({ categories, entities }: { categories: CategoryRow[]; entities: EntityRow[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [edit, setEdit] = useState<CategoryRow | null | "new">(null);
   const [form, setForm] = useState({ name: "", kind: "expense" as CategoryRow["kind"], entity_id: "" });
@@ -215,7 +238,6 @@ function CategoriesTab({ categories, entities }: { categories: CategoryRow[]; en
       const r = await saveCategory({ id: edit !== "new" && edit ? edit.id : undefined, name: form.name, kind: form.kind, entity_id: form.entity_id || null });
       if (!r.ok) return void toast.error(r.error);
       setEdit(null);
-      router.refresh();
     });
   }
   return (
@@ -227,8 +249,8 @@ function CategoriesTab({ categories, entities }: { categories: CategoryRow[]; en
           categories={categories}
           entities={entities}
           open={open}
-          onToggleArchive={(c) => start(async () => { await saveCategory({ id: c.id, name: c.name, kind: c.kind, entity_id: c.entity_id, is_archived: !c.is_archived }); router.refresh(); })}
-          onDelete={(c) => start(async () => { const r = await deleteCategory(c.id); if (!r.ok) toast.error(r.error); router.refresh(); })}
+          onToggleArchive={(c) => start(async () => { await saveCategory({ id: c.id, name: c.name, kind: c.kind, entity_id: c.entity_id, is_archived: !c.is_archived }); })}
+          onDelete={(c) => start(async () => { const r = await deleteCategory(c.id); if (!r.ok) toast.error(r.error); })}
         />
       ))}
       <Sheet open={Boolean(edit)} onOpenChange={(o) => !o && setEdit(null)} title={edit === "new" ? "New category" : "Edit category"} footer={<><Button variant="ghost" onClick={() => setEdit(null)}>Cancel</Button><Button variant="primary" onClick={save} loading={pending}>Save</Button></>}>
@@ -274,7 +296,6 @@ return (
 
 /* ─────────── Accounts ─────────── */
 function AccountsTab({ accounts }: { accounts: AccountRow[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [edit, setEdit] = useState<AccountRow | null | "new">(null);
   const [form, setForm] = useState({ name: "", type: "bank" as AccountRow["type"], currency: "USD" as AccountRow["currency"] });
@@ -287,7 +308,6 @@ function AccountsTab({ accounts }: { accounts: AccountRow[] }) {
       const r = await saveAccount({ id: edit !== "new" && edit ? edit.id : undefined, ...form, is_archived: edit !== "new" && edit ? edit.is_archived : false });
       if (!r.ok) return void toast.error(r.error);
       setEdit(null);
-      router.refresh();
     });
   }
   return (
@@ -299,8 +319,8 @@ function AccountsTab({ accounts }: { accounts: AccountRow[] }) {
             <button type="button" className="flex-1 text-left text-sm font-medium hover:underline" onClick={() => open(a)}>{a.name}</button>
             <span className="label">{a.type}</span>
             <span className="num text-xs text-ink-2">{a.currency}</span>
-            <Button size="icon-sm" variant="ghost" aria-label={a.is_archived ? "Unarchive" : "Archive"} onClick={() => start(async () => { await saveAccount({ id: a.id, name: a.name, type: a.type, currency: a.currency, is_archived: !a.is_archived }); router.refresh(); })}><Archive /></Button>
-            <Button size="icon-sm" variant="ghost" aria-label="Delete" className="hover:text-coral" onClick={() => start(async () => { const r = await deleteAccount(a.id); if (!r.ok) toast.error(r.error); router.refresh(); })}><Trash2 /></Button>
+            <Button size="icon-sm" variant="ghost" aria-label={a.is_archived ? "Unarchive" : "Archive"} onClick={() => start(async () => { await saveAccount({ id: a.id, name: a.name, type: a.type, currency: a.currency, is_archived: !a.is_archived }); })}><Archive /></Button>
+            <Button size="icon-sm" variant="ghost" aria-label="Delete" className="hover:text-coral" onClick={() => start(async () => { const r = await deleteAccount(a.id); if (!r.ok) toast.error(r.error); })}><Trash2 /></Button>
           </div>
         ))}
       </Rows>
@@ -335,7 +355,6 @@ function RecurringTab({ rules, ref_ }: { rules: RecurringRow[]; ref_: RefData })
       const r = await saveRecurring({ id: edit !== "new" && edit ? edit.id : undefined, ...form, amount: Number(form.amount), category_id: form.category_id || null, entity_id: form.entity_id || null, is_active: edit !== "new" && edit ? edit.is_active : true });
       if (!r.ok) return void toast.error(r.error);
       setEdit(null);
-      router.refresh();
     });
   }
   const cats = ref_.categories.filter((c) => c.kind === form.type && !c.is_archived);
@@ -357,8 +376,8 @@ function RecurringTab({ rules, ref_ }: { rules: RecurringRow[]; ref_: RefData })
                 <button type="button" className="flex-1 text-left text-sm font-medium hover:underline" onClick={() => open(r)}>{r.title}</button>
                 <span className="text-xs text-ink-3">{r.cadence} · next {humanDate(r.next_run_on)} · {acc?.name}</span>
                 <span className="num text-sm">{formatMoney(Number(r.amount), r.currency)}</span>
-                <Button size="icon-sm" variant="ghost" aria-label={r.is_active ? "Pause" : "Resume"} onClick={() => start(async () => { await saveRecurring({ id: r.id, title: r.title, type: r.type, amount: Number(r.amount), currency: r.currency, account_id: r.account_id, category_id: r.category_id, entity_id: r.entity_id, cadence: r.cadence, next_run_on: r.next_run_on, is_active: !r.is_active }); router.refresh(); })}><Archive /></Button>
-                <Button size="icon-sm" variant="ghost" aria-label="Delete" className="hover:text-coral" onClick={() => start(async () => { const x = await deleteRecurring(r.id); if (!x.ok) toast.error(x.error); router.refresh(); })}><Trash2 /></Button>
+                <Button size="icon-sm" variant="ghost" aria-label={r.is_active ? "Pause" : "Resume"} onClick={() => start(async () => { await saveRecurring({ id: r.id, title: r.title, type: r.type, amount: Number(r.amount), currency: r.currency, account_id: r.account_id, category_id: r.category_id, entity_id: r.entity_id, cadence: r.cadence, next_run_on: r.next_run_on, is_active: !r.is_active }); })}><Archive /></Button>
+                <Button size="icon-sm" variant="ghost" aria-label="Delete" className="hover:text-coral" onClick={() => start(async () => { const x = await deleteRecurring(r.id); if (!x.ok) toast.error(x.error); })}><Trash2 /></Button>
               </div>
             );
           })}
@@ -388,7 +407,6 @@ function RecurringTab({ rules, ref_ }: { rules: RecurringRow[]; ref_: RefData })
 
 /* ─────────── Integrations ─────────── */
 function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState("");
   const [fresh, setFresh] = useState<string | null>(null);
@@ -404,6 +422,7 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
       currency: "USD",
       occurred_on: todayISO(),
       entity: cod?.slug ?? "cod-africa",
+      project: "Product A",
       category: "Ads",
       account: usdAcc?.name ?? "Main USD",
       note: "Facebook Ads daily spend",
@@ -421,7 +440,7 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
     <div className="grid gap-8 md:grid-cols-2">
       <Section title="API keys">
         <p className="-mt-1 text-sm text-ink-2">Let your other apps push income and spend here (Facebook ad spend, Shopify orders, …). Each key is shown once.</p>
-        <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); start(async () => { const r = await createApiKey(name); if (!r.ok) return void toast.error(r.error); setFresh(r.data.key); setName(""); router.refresh(); }); }}>
+        <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); start(async () => { const r = await createApiKey(name); if (!r.ok) return void toast.error(r.error); setFresh(r.data.key); setName(""); }); }}>
           <Input placeholder="Key name, e.g. Facebook ads bot" value={name} onChange={(e) => setName(e.target.value)} aria-label="Key name" />
           <Button type="submit" variant="primary" loading={pending} disabled={!name.trim()}><KeyRound /> Create</Button>
         </form>
@@ -442,7 +461,7 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
                 <div className="text-sm font-medium">{k.name}</div>
                 <div className="num text-xs text-ink-3">{k.key_prefix}… · {k.revoked_at ? "revoked" : k.last_used_at ? `last used ${humanDate(k.last_used_at.slice(0, 10))}` : "never used"}</div>
               </div>
-              {!k.revoked_at ? <Button size="sm" variant="ghost" className="hover:text-coral" onClick={() => start(async () => { const r = await revokeApiKey(k.id); if (!r.ok) toast.error(r.error); router.refresh(); })}>Revoke</Button> : null}
+              {!k.revoked_at ? <Button size="sm" variant="ghost" className="hover:text-coral" onClick={() => start(async () => { const r = await revokeApiKey(k.id); if (!r.ok) toast.error(r.error); })}>Revoke</Button> : null}
             </div>
           ))}
         </Rows>
@@ -472,6 +491,7 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
           <ul className="list-disc space-y-1 pl-5 text-xs text-ink-2">
             <li><code>external_id</code> makes the call idempotent — send the same id twice and the row is updated, not duplicated.</li>
             <li><code>entity</code>, <code>category</code> and <code>account</code> match by slug or name (case-insensitive). Unknown categories are created.</li>
+            <li><code>project</code> (optional) is a project or product inside that business, matched by name or slug. It must already exist (create it on the Businesses page); naming only the project also sets the business.</li>
             <li><code>type</code> is <code>income</code> or <code>expense</code>. <code>meta</code> is any JSON you want to keep (campaign, units, delivered…).</li>
             <li>Responses: <code>201</code> created, <code>200</code> updated, <code>401</code> bad key, <code>422</code> validation errors per item.</li>
           </ul>
@@ -479,4 +499,10 @@ function IntegrationsTab({ keys, ref_ }: { keys: ApiKeyLite[]; ref_: RefData }) 
       </Section>
     </div>
   );
+}
+
+function ordinal(n: number) {
+  const v = n % 100;
+  const suffix = v >= 11 && v <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
 }

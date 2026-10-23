@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,6 @@ export function DebtsView({ debts, payments }: { debts: DebtRow[]; payments: Deb
   const { accounts, profile } = useRef_();
   const base = profile.base_currency;
   const rate = Number(profile.usd_to_mad);
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [sheet, setSheet] = useState<{ open: boolean; debt: DebtRow | null }>({ open: false, debt: null });
   const [pay, setPay] = useState<DebtRow | null>(null);
@@ -59,7 +57,6 @@ export function DebtsView({ debts, payments }: { debts: DebtRow[]; payments: Deb
       if (!r.ok) return void toast.error(r.error);
       toast.success(sheet.debt ? "Updated" : "Added");
       setSheet({ open: false, debt: null });
-      router.refresh();
     });
   }
 
@@ -70,7 +67,6 @@ export function DebtsView({ debts, payments }: { debts: DebtRow[]; payments: Deb
       if (!r.ok) return void toast.error(r.error);
       toast.success("Payment recorded");
       setPay(null);
-      router.refresh();
     });
   }
 
@@ -99,7 +95,7 @@ export function DebtsView({ debts, payments }: { debts: DebtRow[]; payments: Deb
             setPayAmount={setPayAmount}
             setPayDate={setPayDate}
             setPayAccount={setPayAccount}
-            onDelete={(id) => start(async () => { const r = await deleteDebt(id); if (!r.ok) toast.error(r.error); router.refresh(); })}
+            onDelete={(id) => start(async () => { const r = await deleteDebt(id); if (!r.ok) toast.error(r.error); })}
           />
         ))}
       </div>
@@ -111,7 +107,7 @@ export function DebtsView({ debts, payments }: { debts: DebtRow[]; payments: Deb
                 <span className="flex-1 truncate">{d.counterparty}</span>
                 <span className="num">{formatMoney(Number(d.principal), d.currency, { compactDecimals: true })}</span>
                 <span className="text-xs">{d.direction === "owed_to_me" ? "paid back" : "paid off"}</span>
-                <button type="button" className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-raised hover:text-ink" aria-label="Reopen" onClick={() => start(async () => { const r = await reopenDebt(d.id); if (!r.ok) toast.error(r.error); router.refresh(); })}>
+                <button type="button" className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-raised hover:text-ink" aria-label="Reopen" onClick={() => start(async () => { const r = await reopenDebt(d.id); if (!r.ok) toast.error(r.error); })}>
                   <RotateCcw className="size-4" />
                 </button>
               </div>

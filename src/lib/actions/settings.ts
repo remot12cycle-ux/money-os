@@ -2,7 +2,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidateApp } from "@/lib/revalidate";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +10,7 @@ import { slugify } from "@/lib/utils";
 import { fail, fromZod, ok, type ActionResult } from "./result";
 import type { Theme } from "@/lib/db/types";
 
-const revalidateAll = () => revalidatePath("/", "layout");
+const revalidateAll = revalidateApp;
 
 /* ───────── theme ───────── */
 export async function setTheme(theme: Theme): Promise<ActionResult> {
@@ -29,6 +29,7 @@ const profileSchema = z.object({
   monthly_target: z.coerce.number().min(0),
   target_metric: z.enum(["net_profit", "revenue"]),
   usd_to_mad: z.coerce.number().positive("Rate must be positive"),
+  period_start_day: z.coerce.number().int().min(1, "Pick a day from 1 to 28").max(28, "Pick a day from 1 to 28"),
 });
 export type ProfileInput = z.input<typeof profileSchema>;
 
@@ -230,7 +231,7 @@ export async function createApiKey(name: string): Promise<ActionResult<{ key: st
     .from("api_keys")
     .insert({ name: name.trim(), key_hash, key_prefix: raw.slice(0, 12) });
   if (error) return fail(error.message);
-  revalidatePath("/settings");
+  revalidateApp();
   return ok({ key: raw });
 }
 
@@ -241,7 +242,7 @@ export async function revokeApiKey(id: string): Promise<ActionResult> {
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return fail(error.message);
-  revalidatePath("/settings");
+  revalidateApp();
   return ok(undefined);
 }
 
@@ -283,7 +284,7 @@ export async function saveRecurring(input: RecurringInput): Promise<ActionResult
     ? await supabase.from("recurring_rules").update(row).eq("id", v.id)
     : await supabase.from("recurring_rules").insert(row);
   if (error) return fail(error.message);
-  revalidatePath("/settings");
+  revalidateApp();
   return ok(undefined);
 }
 
@@ -291,6 +292,6 @@ export async function deleteRecurring(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("recurring_rules").delete().eq("id", id);
   if (error) return fail(error.message);
-  revalidatePath("/settings");
+  revalidateApp();
   return ok(undefined);
 }

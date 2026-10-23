@@ -11,6 +11,8 @@ export const ingestItem = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "occurred_on must be yyyy-mm-dd")
     .optional(),
   entity: z.string().min(1).max(80).optional(),
+  /** project / product name or slug inside the entity, e.g. "Notion clone" */
+  project: z.string().min(1).max(80).optional(),
   category: z.string().min(1).max(80).optional(),
   account: z.string().min(1).max(80).optional(),
   note: z.string().max(500).optional(),

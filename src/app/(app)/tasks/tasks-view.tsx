@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { AnimatePresence, Reorder, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
@@ -20,7 +19,6 @@ type Filter = "open" | "today" | "overdue" | "week" | "done";
 
 export function TasksView({ tasks }: { tasks: TaskRow[] }) {
   const { entities } = useRef_();
-  const router = useRouter();
   const reduce = useReducedMotion();
   const [filter, setFilter] = useState<Filter>("open");
   const [project, setProject] = useState<string | "all" | "general">("all");
@@ -81,7 +79,6 @@ export function TasksView({ tasks }: { tasks: TaskRow[] }) {
         due_on: filter === "today" ? today : null,
       });
       if (!r.ok) return void toast.error(r.error);
-      router.refresh();
     });
   }
 

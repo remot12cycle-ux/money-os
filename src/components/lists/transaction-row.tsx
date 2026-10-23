@@ -21,7 +21,8 @@ export function TxRow({
   /** show the date under the amount (lists that aren't grouped by day) */
   showDate?: boolean;
 }) {
-  const { entities, categories, accounts } = useRef_();
+  const { entities, categories, accounts, projects } = useRef_();
+  const project = tx.project_id ? projects.find((p) => p.id === tx.project_id) : undefined;
   const entity = entities.find((e) => e.id === tx.entity_id);
   const category = categories.find((c) => c.id === tx.category_id);
   const account = accounts.find((a) => a.id === tx.account_id);
@@ -34,6 +35,7 @@ export function TxRow({
       : category?.name || (tx.type === "income" ? "Income" : "Expense"));
 
   const sub = [
+    project?.name,
     tx.type === "transfer" ? null : account?.name,
     tx.type !== "transfer" && tx.note?.trim() && category ? category.name : null,
     tx.source === "ingest" ? "via API" : tx.source === "committed" ? "committed → paid" : tx.source === "recurring" ? "recurring" : null,

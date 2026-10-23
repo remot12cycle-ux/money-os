@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Segmented, Select, Textarea } from "@/components/ui/field";
@@ -22,7 +21,7 @@ type Meta = {
   country?: string;
 };
 
-type Defaults = Partial<Pick<TxInput, "type" | "entity_id" | "account_id" | "currency">>;
+type Defaults = Partial<Pick<TxInput, "type" | "entity_id" | "project_id" | "account_id" | "currency">>;
 
 export function TransactionSheet({
   open,
@@ -54,8 +53,7 @@ function TransactionForm({
   defaults?: Defaults;
   close: () => void;
 }) {
-  const { accounts, categories, entities, profile } = useRef_();
-  const router = useRouter();
+  const { accounts, categories, entities, profile, projects } = useRef_();
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -72,6 +70,7 @@ function TransactionForm({
   const [entityId, setEntityId] = useState(
     initial?.entity_id ?? defaults?.entity_id ?? entities.find((e) => e.kind === "personal")?.id ?? "",
   );
+  const [projectId, setProjectId] = useState(initial?.project_id ?? defaults?.project_id ?? "");
   const [categoryId, setCategoryId] = useState(initial?.category_id ?? "");
   const [date, setDate] = useState(initial?.occurred_on ?? todayISO());
   const [note, setNote] = useState(initial?.note ?? "");
@@ -79,6 +78,7 @@ function TransactionForm({
 
 
   const entity = entities.find((e) => e.id === entityId);
+  const entityProjects = projects.filter((p) => p.entity_id === entityId && (p.status !== "archived" || p.id === projectId));
   const isCod = entity?.slug === "cod-africa";
 
   const cats = useMemo(
@@ -103,6 +103,7 @@ function TransactionForm({
       to_account_id: type === "transfer" ? toAccountId || null : null,
       category_id: type === "transfer" ? null : categoryId || null,
       entity_id: entityId || null,
+      project_id: type === "transfer" ? null : entityProjects.some((p) => p.id === projectId) ? projectId : null,
       occurred_on: date,
       note: note || null,
       // Only send meta when the COD block was shown; otherwise the server keeps what's stored.
@@ -117,7 +118,6 @@ function TransactionForm({
       }
       toast.success(initial ? "Transaction updated" : "Transaction added");
       close();
-      router.refresh();
     });
   }
 
@@ -184,7 +184,14 @@ function TransactionForm({
         {type !== "transfer" ? (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Entity" htmlFor="entity">
-              <Select id="entity" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+              <Select
+                id="entity"
+                value={entityId}
+                onChange={(e) => {
+                  setEntityId(e.target.value);
+                  setProjectId("");
+                }}
+              >
                 {entities
                   .filter((e) => !e.is_archived)
                   .map((e) => (
@@ -210,6 +217,19 @@ function TransactionForm({
             <Input id="date2" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
         )}
+
+        {type !== "transfer" && entityProjects.length ? (
+          <Field label="Project" htmlFor="project">
+            <Select id="project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">Whole business (no project)</option>
+              {entityProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
 
         {isCod && type !== "transfer" ? (
           <fieldset className="rounded-lg border border-hairline p-3">

@@ -74,7 +74,6 @@ export function MoneyView({
     start(async () => {
       const res = await deleteTransaction(tx.id);
       if (!res.ok) return void toast.error(res.error);
-      router.refresh();
       toast("Transaction deleted", {
         action: {
           label: "Undo",
@@ -97,7 +96,6 @@ export function MoneyView({
                 meta: tx.meta,
               });
               if (!r.ok) toast.error(r.error);
-              router.refresh();
             }),
         },
         duration: 6000,

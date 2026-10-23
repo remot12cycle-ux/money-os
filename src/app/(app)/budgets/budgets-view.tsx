@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ export function BudgetsView({
 }) {
   const { categories, profile } = useRef_();
   const base = profile.base_currency;
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [goalSheet, setGoalSheet] = useState<{ open: boolean; goal: GoalRow | null }>({ open: false, goal: null });
   const [gTitle, setGTitle] = useState("");
@@ -59,7 +57,6 @@ export function BudgetsView({
     start(async () => {
       const res = await setBudget({ category_id: categoryId, month, amount_base: Number.isFinite(amount) ? amount : 0 });
       if (!res.ok) return void toast.error(res.error);
-      router.refresh();
     });
   }
 
@@ -76,7 +73,6 @@ export function BudgetsView({
       if (!res.ok) return void toast.error(res.error);
       toast.success(goalSheet.goal ? "Goal updated" : "Goal created");
       setGoalSheet({ open: false, goal: null });
-      router.refresh();
     });
   }
 
@@ -131,7 +127,6 @@ export function BudgetsView({
                   const r = await copyBudgetsFromPreviousMonth(month);
                   if (!r.ok) return void toast.error(r.error);
                   toast.success(`Copied ${r.data.copied} budgets`);
-                  router.refresh();
                 })
               }
               disabled={pending}
@@ -244,7 +239,6 @@ export function BudgetsView({
                         start(async () => {
                           const r = await deleteGoal(g.id);
                           if (!r.ok) toast.error(r.error);
-                          router.refresh();
                         })
                       }
                     >
@@ -308,7 +302,6 @@ export function BudgetsView({
                   if (!r.ok) return void toast.error(r.error);
                   toast.success("Goal updated");
                   setContrib(null);
-                  router.refresh();
                 })
               }
             >

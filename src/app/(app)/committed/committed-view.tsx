@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
@@ -25,7 +24,6 @@ export function CommittedView({
   netWorth: { base: "USD" | "MAD"; rate: number; total: number; committed: number; available: number };
 }) {
   const { entities, accounts, profile } = useRef_();
-  const router = useRouter();
   const reduce = useReducedMotion();
   const [tab, setTab] = useState<"open" | "history">("open");
   const [edit, setEdit] = useState<{ open: boolean; item: CommittedRow | null }>({ open: false, item: null });
@@ -55,7 +53,6 @@ export function CommittedView({
       if (!res.ok) return void toast.error(res.error);
       toast.success(`Paid · ${formatMoney(Number(payAmount) || pay.amount, pay.currency)} left your wallet`);
       setPay(null);
-      router.refresh();
     });
   }
 
@@ -64,7 +61,6 @@ export function CommittedView({
       const res = await fn();
       if (!res.ok) return void toast.error(res.error ?? "Something went wrong");
       toast.success(msg);
-      router.refresh();
     });
   }
 

@@ -1,30 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowUpRight } from "lucide-react";
 import { getRefData } from "@/lib/data/core";
-import { codStats, getEntityReport } from "@/lib/data/businesses";
-import { currentMonth } from "@/lib/dates";
-import { formatMoney, formatPercent } from "@/lib/money";
+import { getBusinessesOverview } from "@/lib/data/businesses";
+import { monthLabel, monthParam } from "@/lib/dates";
+import { formatMoney, formatPercent, sum } from "@/lib/money";
 import { MonthPicker } from "@/components/month-picker";
-import { CategoryBars, IncomeExpenseChart } from "@/components/charts/charts";
-import { Empty, EntityDot, Money, PageHeader, Rows, Section, Stat } from "@/components/ui/primitives";
-import { TxRow } from "@/components/lists/transaction-row";
-import { EntityAddButton } from "./entity-add";
+import { Empty, EntityDot, Money, PageHeader, Stat } from "@/components/ui/primitives";
+import { BusinessTabs, NetBars, projectNoun } from "@/components/business/shared";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Businesses" };
 
-export default async function BusinessesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ entity?: string; month?: string }>;
-}) {
+export default async function BusinessesPage({ searchParams }: { searchParams: Promise<{ entity?: string; month?: string }> }) {
   const sp = await searchParams;
   const ref = await getRefData();
-  const list = ref.entities.filter((e) => !e.is_archived && e.kind !== "personal");
-  const entity = list.find((e) => e.id === sp.entity) ?? list[0];
-  const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : currentMonth();
+  // old links: /businesses?entity=<uuid>
+  if (sp.entity) {
+    const e = ref.entities.find((x) => x.id === sp.entity);
+    if (e) redirect(`/businesses/${e.slug}${sp.month ? `?month=${sp.month}` : ""}`);
+  }
+  const month = monthParam(sp.month, ref.profile.period_start_day);
+  const o = await getBusinessesOverview(month);
+  const base = o.base;
 
-  if (!entity) {
+  if (!o.businesses.length) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Businesses" />
@@ -33,95 +34,88 @@ export default async function BusinessesPage({
     );
   }
 
-  const report = await getEntityReport(entity.id, month);
-  const catNames = new Map(ref.categories.map((c) => [c.id, c.name]));
-  const isCod = entity.slug === "cod-africa";
-  const cod = isCod ? codStats(report.monthRows, catNames) : null;
-  const catRows = report.byCategory
-    .map(([id, value]) => ({ name: (id && catNames.get(id)) || "Uncategorised", value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
-  const base = report.base;
+  const income = sum(o.cards.map((c) => c.period.income));
+  const expenses = sum(o.cards.map((c) => c.period.expenses));
+  const net = +(income - expenses).toFixed(2);
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Businesses" actions={<MonthPicker month={month} />} />
+      <PageHeader
+        title="Businesses"
+        subtitle={o.startDay === 1 ? undefined : monthLabel(month, o.startDay)}
+        actions={<MonthPicker month={month} />}
+      />
+      <BusinessTabs list={o.businesses} month={sp.month} />
 
-      {/* entity tabs */}
-      <div className="-mx-4 flex gap-1 overflow-x-auto border-b border-hairline px-4 md:mx-0 md:px-0" role="tablist">
-        {list.map((e) => {
-          const active = e.id === entity.id;
+      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+        <Stat label="Revenue · all" value={<Money amount={income} currency={base} tone="mint" compactDecimals />} />
+        <Stat label="Costs · all" value={<Money amount={-expenses} currency={base} tone="coral" compactDecimals />} />
+        <Stat label="Profit · all" value={<Money amount={net} currency={base} sign compactDecimals />} />
+        <Stat label="Margin" value={<span className={cn(net < 0 && "text-coral")}>{income ? formatPercent(net / income) : "—"}</span>} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {o.businesses.map((e) => {
+          const c = o.cards.find((x) => x.entityId === e.id)!;
+          const noun = projectNoun(e);
+          const delta = c.period.net - c.previous.net;
+          const top = [...c.projects].sort((a, b) => b.period.income - a.period.income || a.project.name.localeCompare(b.project.name)).slice(0, 4);
           return (
             <Link
               key={e.id}
-              href={{ pathname: "/businesses", query: { entity: e.id, ...(sp.month ? { month: sp.month } : {}) } }}
-              role="tab"
-              aria-selected={active}
-              className={cn(
-                "relative flex h-10 shrink-0 items-center gap-2 px-3 text-sm transition-colors",
-                active ? "text-ink" : "text-ink-2 hover:text-ink",
-              )}
+              href={{ pathname: `/businesses/${e.slug}`, query: sp.month ? { month: sp.month } : {} }}
+              className="group flex flex-col gap-4 rounded-lg border border-hairline bg-surface p-4 transition-colors duration-150 hover:bg-raised"
             >
-              <EntityDot color={e.color} />
-              {e.name}
-              {active ? <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-mint" /> : null}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <EntityDot color={e.color} className="size-2.5" />
+                  <h2 className="truncate text-[15px] font-semibold">{e.name}</h2>
+                </div>
+                <ArrowUpRight className="size-4 shrink-0 text-ink-3 transition-colors group-hover:text-ink" aria-hidden />
+              </div>
+
+              <div className="flex items-end justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="label">Profit</span>
+                  <Money amount={c.period.net} currency={base} sign compactDecimals className="text-2xl font-medium tracking-[-0.02em]" />
+                  <span className="num text-xs text-ink-2">
+                    <span className="text-mint">{formatMoney(c.period.income, base, { compactDecimals: true })}</span>
+                    {" in · "}
+                    <span className="text-coral">{formatMoney(c.period.expenses, base, { compactDecimals: true })}</span>
+                    {" out"}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <NetBars values={c.trend.map((t) => t.net)} />
+                  <span className={cn("num text-[11px]", delta > 0 ? "text-mint" : delta < 0 ? "text-coral" : "text-ink-3")}>
+                    {delta === 0 ? "same as last" : `${formatMoney(delta, base, { sign: true, compactDecimals: true })} vs last`}
+                  </span>
+                </div>
+              </div>
+
+              {e.kind === "salary" ? null : (
+                <div className="flex flex-col gap-1.5 border-t border-hairline pt-3">
+                  <span className="label">
+                    {c.projects.length} {c.projects.length === 1 ? noun.one : noun.many.toLowerCase()}
+                  </span>
+                  {top.length ? (
+                    <ul className="flex flex-col gap-1">
+                      {top.map(({ project, period }) => (
+                        <li key={project.id} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="truncate text-ink-2">{project.name}</span>
+                          <Money amount={period.net} currency={base} sign compactDecimals className="text-xs" />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-sm text-ink-3">No {noun.many.toLowerCase()} yet — open to add one.</span>
+                  )}
+                </div>
+              )}
             </Link>
           );
         })}
       </div>
-
-      {/* month headline */}
-      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-        <Stat label="Revenue" value={<Money amount={report.monthPnl.income} currency={base} tone="mint" compactDecimals />} />
-        <Stat label="Costs" value={<Money amount={-report.monthPnl.expenses} currency={base} tone="coral" compactDecimals />} />
-        <Stat label="Profit" value={<Money amount={report.monthPnl.net} currency={base} sign compactDecimals />} />
-        <Stat
-          label="Margin"
-          value={<span className={cn(report.monthPnl.margin < 0 && "text-coral")}>{report.monthPnl.income ? formatPercent(report.monthPnl.margin) : "—"}</span>}
-        />
-      </div>
-
-      {cod ? (
-        <Section title="COD performance · this month">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-lg border border-hairline p-4 md:grid-cols-4">
-            <Stat label="Ad spend" value={formatMoney(cod.adSpend, base, { compactDecimals: true })} sub="category: Ads" />
-            <Stat label="ROAS" value={cod.adSpend ? `${cod.roas.toFixed(2)}×` : "—"} sub="revenue ÷ ad spend" />
-            <Stat label="Product cost" value={formatMoney(cod.productCost, base, { compactDecimals: true })} />
-            <Stat label="Shipping" value={formatMoney(cod.shipping, base, { compactDecimals: true })} />
-            <Stat label="Units" value={cod.units || "—"} />
-            <Stat label="Delivered" value={cod.delivered || "—"} sub={cod.units ? `${formatPercent(cod.deliveryRate)} delivery rate` : undefined} />
-            <Stat label="Returned" value={<span className={cn(cod.returned && "text-coral")}>{cod.returned || "—"}</span>} />
-            <Stat label="Profit / delivered" value={cod.delivered ? formatMoney(cod.profitPerDelivered, base) : "—"} />
-          </div>
-          <p className="text-xs text-ink-3">
-            Units, delivered and returned come from the COD details on each transaction. Ad spend sent by your other app lands here automatically.
-          </p>
-        </Section>
-      ) : null}
-
-      <div className="grid gap-8 md:grid-cols-12">
-        <Section title="12-month trend" className="md:col-span-7">
-          <IncomeExpenseChart data={report.trend} currency={base} />
-        </Section>
-        <Section title="Where the money went" className="md:col-span-5">
-          {catRows.length ? <CategoryBars rows={catRows} currency={base} /> : <Empty title="No costs this month" />}
-        </Section>
-      </div>
-
-      <Section
-        title={`Transactions · ${entity.name}`}
-        aside={<EntityAddButton entityId={entity.id} />}
-      >
-        {report.monthRows.length ? (
-          <Rows>
-            {report.monthRows.map((tx) => (
-              <TxRow key={tx.id} tx={tx} showDate />
-            ))}
-          </Rows>
-        ) : (
-          <Empty title="Nothing recorded this month" body="Add a sale or a cost for this entity." action={<EntityAddButton entityId={entity.id} primary />} />
-        )}
-      </Section>
     </div>
   );
 }

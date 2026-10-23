@@ -1,11 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateApp } from "@/lib/revalidate";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { fail, fromZod, ok, type ActionResult } from "./result";
 
-const revalidate = () => ["/", "/budgets"].forEach((p) => revalidatePath(p));
+const revalidate = revalidateApp;
 
 export async function setBudget(input: {
   category_id: string;

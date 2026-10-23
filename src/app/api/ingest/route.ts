@@ -41,11 +41,12 @@ export async function POST(req: NextRequest) {
   const parsed = normalizeBody(raw);
   if (!parsed.ok) return NextResponse.json({ error: "Validation failed", details: parsed.errors }, { status: 422 });
 
-  const [{ data: profile }, { data: entities }, { data: categories }, { data: accounts }] = await Promise.all([
+  const [{ data: profile }, { data: entities }, { data: categories }, { data: accounts }, { data: projects }] = await Promise.all([
     supabase.from("profiles").select("base_currency, usd_to_mad").eq("id", owner).single(),
     supabase.from("entities").select("id, name, slug").eq("owner_id", owner),
     supabase.from("categories").select("id, name, kind").eq("owner_id", owner),
     supabase.from("accounts").select("id, name, currency, is_archived").eq("owner_id", owner),
+    supabase.from("projects").select("id, name, slug, entity_id").eq("owner_id", owner),
   ]);
   if (!profile) return NextResponse.json({ error: "Owner profile missing" }, { status: 500 });
   const base = profile.base_currency as "USD" | "MAD";
@@ -55,7 +56,16 @@ export async function POST(req: NextRequest) {
   const results: { index: number; status: number; id?: string; updated?: boolean; error?: string }[] = [];
 
   for (const [index, item] of parsed.items.entries()) {
-    const entity = findByNameOrSlug(entities ?? [], item.entity);
+    const named = findByNameOrSlug(entities ?? [], item.entity);
+    // A project can be named alone; it then also decides the entity.
+    const project = item.project
+      ? findByNameOrSlug((projects ?? []).filter((p) => !named || p.entity_id === named.id), item.project)
+      : undefined;
+    if (item.project && !project) {
+      results.push({ index, status: 422, error: `Unknown project "${item.project}"${named ? ` in ${named.name}` : ""}` });
+      continue;
+    }
+    const entity = named ?? (project ? (entities ?? []).find((e) => e.id === project.entity_id) : undefined);
     const active = (accounts ?? []).filter((a) => !a.is_archived);
     const account =
       findByNameOrSlug(active, item.account) ??
@@ -95,6 +105,7 @@ export async function POST(req: NextRequest) {
       account_id: account.id,
       category_id,
       entity_id: entity?.id ?? null,
+      project_id: project?.id ?? null,
       occurred_on: item.occurred_on ?? new Date().toISOString().slice(0, 10),
       note: item.note ?? null,
       source: "ingest" as const,

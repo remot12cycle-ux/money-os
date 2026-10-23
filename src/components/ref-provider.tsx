@@ -1,13 +1,14 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { AccountRow, CategoryRow, EntityRow, ProfileRow } from "@/lib/db/types";
+import type { AccountRow, CategoryRow, EntityRow, ProfileRow, ProjectRow } from "@/lib/db/types";
 
 export type RefData = {
   profile: ProfileRow;
   entities: EntityRow[];
   categories: CategoryRow[];
   accounts: AccountRow[];
+  projects: ProjectRow[];
 };
 
 const Ctx = createContext<RefData | null>(null);

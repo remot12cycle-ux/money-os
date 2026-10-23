@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { monthLabel, monthShort } from "@/lib/dates";
 import {
   Area,
   AreaChart,
@@ -113,12 +114,15 @@ export function Sparkline({
 export function IncomeExpenseChart({
   data,
   currency,
+  startDay = 1,
 }: {
   data: { month: string; income: number; expenses: number; net: number }[];
   currency: Currency;
+  /** finance-month start day, for tooltip ranges */
+  startDay?: number;
 }) {
   const c = useThemeColors();
-  const label = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleString("en", { month: "short" });
+  const label = monthShort;
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -143,7 +147,7 @@ export function IncomeExpenseChart({
             content={({ active, payload, label: l }) =>
               active && payload?.length ? (
                 <TipBox
-                  title={new Date(`${l}-01T00:00:00`).toLocaleString("en", { month: "long", year: "numeric" })}
+                  title={monthLabel(String(l), startDay)}
                   rows={[
                     { label: "Income", value: formatMoney(Number(payload[0]?.value ?? 0), currency), color: c.mint },
                     { label: "Expenses", value: formatMoney(Number(payload[1]?.value ?? 0), currency), color: c.coral },

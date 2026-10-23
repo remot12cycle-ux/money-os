@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,6 @@ export function TargetEditor({
   const [value, setValue] = useState(amount ? String(amount) : "");
   const [m, setM] = useState<TargetMetric>(metric);
   const [pending, start] = useTransition();
-  const router = useRouter();
 
   function submit() {
     start(async () => {
@@ -34,7 +32,6 @@ export function TargetEditor({
       if (!res.ok) return void toast.error(res.error);
       toast.success("Monthly target updated");
       setOpen(false);
-      router.refresh();
     });
   }
 

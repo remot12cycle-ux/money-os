@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateApp } from "@/lib/revalidate";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -11,11 +11,7 @@ import type { Currency } from "@/lib/db/types";
 
 export type { TxInput };
 
-function revalidateMoney() {
-  for (const p of ["/", "/money", "/businesses", "/budgets", "/committed", "/debts"]) {
-    revalidatePath(p);
-  }
-}
+const revalidateMoney = revalidateApp;
 
 async function fxFor(currency: Currency) {
   const user = await requireUser();
@@ -58,6 +54,7 @@ export async function saveTransaction(input: TxInput): Promise<ActionResult<{ id
     to_account_id: v.type === "transfer" ? v.to_account_id ?? null : null,
     category_id: v.type === "transfer" ? null : v.category_id ?? null,
     entity_id: v.entity_id ?? null,
+    project_id: v.type === "transfer" ? null : v.project_id ?? null,
     occurred_on: v.occurred_on,
     note: v.note ?? null,
   };

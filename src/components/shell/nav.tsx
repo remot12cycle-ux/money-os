@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Briefcase,
@@ -70,6 +70,7 @@ export function Sidebar() {
               ) : null}
               <item.icon className="size-[18px] shrink-0" aria-hidden />
               <span className="hidden lg:block truncate">{item.label}</span>
+              <PendingDot className="ml-auto hidden lg:block" />
             </Link>
           );
         })}
@@ -99,7 +100,10 @@ export function MobileTabs({ onMore }: { onMore: () => void }) {
               active ? "text-mint" : "text-ink-2",
             )}
           >
-            <item.icon className="size-[22px]" aria-hidden />
+            <span className="relative">
+              <item.icon className="size-[22px]" aria-hidden />
+              <PendingDot className="absolute -right-1.5 -top-0.5" />
+            </span>
             {item.label.split(" ")[0]}
           </Link>
         );
@@ -113,5 +117,20 @@ export function MobileTabs({ onMore }: { onMore: () => void }) {
         More
       </button>
     </nav>
+  );
+}
+
+/** Tiny pulse on the link that was just tapped, until its page is on screen. */
+function PendingDot({ className }: { className?: string }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "size-1.5 rounded-full bg-mint transition-opacity duration-150",
+        pending ? "animate-pulse opacity-100" : "opacity-0",
+        className,
+      )}
+    />
   );
 }

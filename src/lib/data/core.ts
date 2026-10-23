@@ -9,6 +9,7 @@ import type {
   CategoryRow,
   EntityRow,
   ProfileRow,
+  ProjectRow,
 } from "@/lib/db/types";
 
 /**
@@ -65,6 +66,17 @@ export const getAccounts = cache(async (): Promise<AccountRow[]> => {
   return data ?? [];
 });
 
+export const getProjects = cache(async (): Promise<ProjectRow[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .order("sort_order")
+    .order("created_at");
+  if (error) throw error;
+  return data ?? [];
+});
+
 export const getAccountBalances = cache(async (): Promise<AccountBalanceRow[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase.from("account_balances").select("*");
@@ -77,14 +89,27 @@ export type RefData = {
   entities: EntityRow[];
   categories: CategoryRow[];
   accounts: AccountRow[];
+  projects: ProjectRow[];
 };
 
 export const getRefData = cache(async (): Promise<RefData> => {
-  const profile = await getProfile(); // ensures seed ran first
-  const [entities, categories, accounts] = await Promise.all([
+  // One parallel round trip. getProfile seeds on first login; in that rare case
+  // the other lists were read before the seed, so read them again.
+  const supabase = await createClient();
+  const [profile, entities, categories, accounts, projects] = await Promise.all([
+    getProfile(),
     getEntities(),
     getCategories(),
     getAccounts(),
+    getProjects(),
   ]);
-  return { profile, entities, categories, accounts };
+  if (entities.length === 0) {
+    const [e, c, a] = await Promise.all([
+      supabase.from("entities").select("*").order("sort_order").order("name"),
+      supabase.from("categories").select("*").order("sort_order").order("name"),
+      supabase.from("accounts").select("*").order("sort_order").order("name"),
+    ]);
+    return { profile, entities: e.data ?? [], categories: c.data ?? [], accounts: a.data ?? [], projects };
+  }
+  return { profile, entities, categories, accounts, projects };
 });
